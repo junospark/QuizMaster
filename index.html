@@ -1,0 +1,2839 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>Interaktives Quiz</title>
+  <!-- Progressive Web App meta tags for iOS/Safari and general -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0d0f10">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Interaktives Quiz">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <!-- iOS Home Screen icons -->
+  <link rel="apple-touch-icon" sizes="192x192" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" sizes="512x512" href="icons/icon-512.png">
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.6/dist/purify.min.js"></script>
+
+  <style>
+    /* Browser-Standard-Basis mit modernen Ergänzungen */
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; padding: 0;
+      font-family: -webkit-system-font, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      line-height: 1.5; color: CanvasText; background: Canvas; min-height: 100vh;
+    }
+    body { padding: 20px; max-width: 1400px; margin: 0 auto; }
+
+    /* Container */
+    #main, #quiz-card, #editor, #importer, #progress, #edit-modal, #preview-modal {
+      margin-top: 20px; padding: 20px; border: 1px solid ButtonBorder; border-radius: 8px;
+      background: Field; box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    /* Dashboard */
+    .dashboard-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-top:20px; }
+    .dashboard-card { padding:16px; border:1px solid ButtonBorder; border-radius:8px; background:Field; box-shadow:0 2px 8px rgba(0,0,0,0.05); }
+    .dashboard-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; padding-bottom:16px; }
+    .settings-panel {
+      display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+      gap:16px; margin-bottom:20px; padding:16px;
+      background: color-mix(in srgb, Field 95%, blue 5%);
+      border-radius:8px; border:1px solid ButtonBorder;
+    }
+
+    .progress-bar { width:100%; height:20px; background: color-mix(in srgb, Field 80%, gray 20%); border-radius:10px; overflow:hidden; margin:8px 0; }
+    .progress-fill { height:100%; border-radius:10px; transition: width 0.3s ease; }
+    .progress-fill.good{background:linear-gradient(90deg,#4ade80,#22c55e);}
+    .progress-fill.warning{background:linear-gradient(90deg,#fbbf24,#f59e0b);}
+    .progress-fill.danger{background:linear-gradient(90deg,#f87171,#ef4444);}
+
+    .stats-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin:16px 0; }
+    .stat-item { text-align:center; padding:12px; background: color-mix(in srgb, Field 90%, blue 10%); border-radius:8px; border:1px solid color-mix(in srgb, ButtonBorder 80%, blue 20%); }
+    .stat-value { font-size:1.8em; font-weight:bold; color: color-mix(in srgb, CanvasText 70%, blue 30%); }
+    .stat-label { font-size:0.9em; opacity:0.8; margin-top:4px; }
+
+    .chart-container { position:relative; height:300px; margin:16px 0; }
+
+    .theme-progress { margin-bottom:16px; padding:12px; background: color-mix(in srgb, Field 95%, transparent 5%); border-radius:6px; border:1px solid color-mix(in srgb, ButtonBorder 90%, transparent 10%); }
+    .theme-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+    .theme-name { font-weight:600; color: color-mix(in srgb, CanvasText 80%, blue 20%); }
+    .theme-stats { font-size:0.9em; opacity:0.8; }
+
+    h1,h2,h3,h4,h5,h6 { color:CanvasText; margin:0 0 16px 0; font-weight:600; }
+
+    button {
+      font-family:inherit; font-size:inherit; padding:8px 16px; margin:4px 8px 4px 0;
+      border:1px solid ButtonBorder; border-radius:4px; background: ButtonFace; color: ButtonText; cursor:pointer; transition: all 0.15s ease;
+    }
+    button:hover{background: color-mix(in srgb, ButtonFace 85%, CanvasText 15%); border-color: color-mix(in srgb, ButtonBorder 70%, CanvasText 30%);}
+    button:active{background: color-mix(in srgb, ButtonFace 75%, CanvasText 25%); transform: translateY(1px);}
+    button:focus{outline:2px solid Highlight; outline-offset:2px;}
+    button[disabled]{opacity:.6; cursor:not-allowed; filter:grayscale(.6); background: color-mix(in srgb, ButtonFace 90%, gray 10%); color:GrayText; border-color: color-mix(in srgb, ButtonBorder 70%, gray 30%);}
+    #check-btn[disabled]{background: color-mix(in srgb, ButtonFace 85%, gray 15%);}
+
+    input, textarea, select {
+      font-family:inherit; font-size:inherit; padding:6px 8px; margin:4px 0;
+      border:1px solid ButtonBorder; border-radius:4px; background: Field; color: FieldText;
+    }
+    input:focus, textarea:focus, select:focus { outline:2px solid Highlight; outline-offset:1px; border-color:Highlight; }
+    .input-group { display:flex; flex-direction:column; gap:4px; }
+    .input-group label{ font-weight:500; font-size:0.9em; }
+
+    .delete-all-btn { background: var(--danger); color: var(--bg); border: 1px solid var(--danger); color: color-mix(in srgb, ButtonText 80%, red 20%); }
+    .delete-all-btn:hover{ background: color-mix(in srgb, ButtonFace 60%, red 40%); }
+
+    #add-ans-btn, .delete-ans-btn { font-size:1.2em; border:none; background:none; color: color-mix(in srgb, CanvasText 70%, blue 30%); cursor:pointer; padding:4px; }
+    #add-ans-btn:hover, .delete-ans-btn:hover { color: color-mix(in srgb, CanvasText 50%, red 50%); }
+
+    .answer { display:flex; align-items:center; margin-bottom:8px; gap:8px; }
+    /*
+     * Antwort-Felder im Bearbeitungsdialog verwenden einen
+     * contenteditable <div> mit der Klasse "richbox" (siehe bindEditable()).
+     * Die Basisklasse .richbox ist für größere Fragetexte ausgelegt
+     * und hat ein Mindestmaß von 70px. Für die kurzen Antwortfelder
+     * wird dieses Styling hier überschrieben: sie sollen flexibel
+     * in der Breite aufziehen, eine kleinere Mindesthöhe besitzen
+     * und die bekannte dunkel glänzende Optik erhalten.
+     */
+    .answer .richbox {
+      flex: 1;
+      min-height: 2.5em;
+      resize: vertical;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px;
+      background: var(--surface);
+      color: var(--text);
+    }
+    .answer .richbox:focus {
+      outline: 2px solid var(--accent);
+      outline-offset: 1px;
+    }
+
+    .correct { color: color-mix(in srgb, CanvasText 40%, green 60%); font-weight:bold; }
+    .wrong { color: color-mix(in srgb, CanvasText 40%, red 60%); font-weight:bold; }
+
+    .comment-btn.active { background: color-mix(in srgb, ButtonFace 70%, yellow 30%); border-color: color-mix(in srgb, ButtonBorder 50%, orange 50%); }
+    .comment-btn[disabled] { background: color-mix(in srgb, ButtonFace 90%, gray 10%); color:GrayText; cursor:not-allowed; }
+
+    .scroll-table-container { width:100%; max-width: calc(100vw - 80px); overflow:auto; height:55vh; min-height:200px; border:1px solid ButtonBorder; border-radius:6px; background: Field; }
+    table { border-collapse:collapse; width:100%; min-width:700px; font-size:0.95em; }
+    th, td { border:1px solid color-mix(in srgb, ButtonBorder 80%, transparent 20%); padding:8px 12px; text-align:left; background: Field; }
+    th { background: color-mix(in srgb, Field 85%, CanvasText 15%); position:sticky; top:0; z-index:2; font-weight:600; }
+    tr:hover td { background: color-mix(in srgb, Field 90%, Highlight 10%); }
+
+    .delete-q-btn { background:none; border:none; cursor:pointer; font-size:1.2em; color: color-mix(in srgb, CanvasText 60%, red 40%); padding:2px 4px; }
+    .delete-q-btn:hover { color: color-mix(in srgb, CanvasText 40%, red 60%); }
+
+    table .missing-solution-row td { background: color-mix(in srgb, Field 70%, yellow 30%) !important; }
+    table .missing-solution-row:hover td { background: color-mix(in srgb, Field 50%, yellow 50%) !important; }
+    table .partial-match-row td { background: color-mix(in srgb, Field 70%, orange 30%) !important; }
+    table .partial-match-row:hover td { background: color-mix(in srgb, Field 50%, orange 50%) !important; }
+
+    #edit-modal, #preview-modal {
+      position:fixed; left:0; top:0; width:100vw; height:100vh; display:none;
+      align-items:center; justify-content:center; background: color-mix(in srgb, Canvas 20%, transparent 80%);
+      backdrop-filter: blur(2px); z-index:9999;
+    }
+    #modal-content, #preview-content {
+      background: Canvas; border: 2px solid ButtonBorder; border-radius:12px; padding:24px;
+      width:min(950px, 90vw); max-height:90vh; overflow:auto; box-shadow:0 8px 32px rgba(0,0,0,0.2); position:relative;
+    }
+
+    .native-dialog { position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:Canvas; border:2px solid ButtonBorder; border-radius:8px; padding:20px; min-width:300px; max-width:500px; box-shadow:0 4px 20px rgba(0,0,0,0.3); z-index:10000; color:CanvasText; display:none; }
+    .native-dialog-overlay { position:fixed; top:0; left:0; width:100vw; height:100vh; background: color-mix(in srgb, Canvas 30%, transparent 70%); z-index:9999; display:none; }
+    .native-dialog h4{ margin:0 0 12px 0; color:CanvasText; }
+    .native-dialog p{ margin:12px 0; line-height:1.4; }
+    .native-dialog-buttons{ text-align:right; margin-top:16px; display:flex; gap:8px; justify-content:flex-end; }
+    .modal-header { cursor:move; padding:0 0 16px 0; border-bottom:1px solid ButtonBorder; margin-bottom:16px; user-select:none; }
+
+    .quiz-top { margin-bottom:16px; display:flex; gap:16px; flex-wrap:wrap; }
+    #quiz-card .answer { font-size:1.1em; gap:12px; margin-bottom:12px; }
+    #quiz-card .answer input[type="checkbox"] { transform: scale(1.2); }
+
+    @media (max-width: 768px) {
+      body{padding:12px;} .dashboard-grid{grid-template-columns:1fr; gap:16px;}
+      .settings-panel{grid-template-columns:1fr; gap:12px;}
+      .stats-grid{grid-template-columns:repeat(2,1fr);}
+      #main, #quiz-card, #editor, #importer, #progress{padding:16px; margin-top:12px;}
+      .scroll-table-container{max-width: calc(100vw - 32px);}
+      table, th, td { min-width:400px; font-size:0.9em; }
+      #modal-content, #preview-content { width:95vw; padding:16px; }
+      .quiz-top{flex-direction:column; gap:8px;}
+      button{padding:10px 16px; margin:6px 6px 6px 0;}
+      .native-dialog{min-width:280px; max-width:90vw; padding:16px;}
+    }
+    @media (prefers-color-scheme: dark) { .scroll-table-container{border-color: color-mix(in srgb, ButtonBorder 60%, white 40%);} #modal-content, #preview-content, .native-dialog{ box-shadow:0 8px 32px rgba(0,0,0,0.5);} }
+    @media (prefers-reduced-motion: reduce){ *{animation-duration:.01ms !important; animation-iteration-count:1 !important; transition-duration:.01ms !important;} }
+    @media (prefers-contrast: high){
+      button,input,textarea,select,th,td{ border-width:2px; } .native-dialog{border-width:3px;}
+    }
+    /* sanfte Hervorhebung der zuletzt bearbeiteten Zeile */
+    .flash-highlight { animation: flash-bg 1.2s ease-out 1; }
+    @keyframes flash-bg {
+    0%   { background: color-mix(in srgb, Field 60%, yellow 40%); }
+    100% { background: transparent; }
+    }
+    .rte-toolbar{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
+    .rte-toolbar button,input[type="color"],select{padding:6px 8px}
+    .richbox{border:1px solid ButtonBorder;border-radius:6px;padding:8px;background:Field;min-height:70px}
+    .richbox:focus{outline:2px solid Highlight;outline-offset:1px}
+    
+    /* Sorgt für saubere Abstände in angezeigten Kommentaren */
+    .comment-body p,
+    .comment-body div,
+    .comment-body li { margin: 0 0 .5em 0; }
+    .comment-body p:last-child,
+    .comment-body div:last-child,
+    .comment-body li:last-child { margin-bottom: 0; }
+  
+   #modal-content #qcomment.richbox {
+    min-height: 220px;
+    max-height: 60vh;
+    overflow: auto;
+  }
+ /* Floating-WYSIWYG – größer + frei skalierbar */
+.rte-float{
+  position:fixed; top:12px; left:12px; z-index:100000; display:none;
+  background:Field; border:1px solid ButtonBorder; border-radius:10px;
+  box-shadow:0 10px 25px rgba(0,0,0,.25);
+  padding:10px;
+  min-width:420px;            /* vorher 280px */
+  max-width:90vw;
+  font-size:14px;
+  min-height:100px;              
+  resize:both; overflow:auto; /* per Maus vergrößerbar */
+}
+.rte-float .rte-header{
+  cursor:move; user-select:none; font-weight:600;
+  padding:6px 8px; border-bottom:1px solid ButtonBorder; margin:-10px -10px 10px -10px;
+  background: color-mix(in srgb, Field 90%, CanvasText 10%);
+  display:flex; justify-content:space-between; align-items:center;
+  min-height:36px;
+}
+.rte-float .rte-header .right button{ height:28px; width:28px; padding:0; }
+.rte-float .rte-toolbar{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+.rte-float .rte-toolbar button,
+.rte-float .rte-toolbar select,
+.rte-float .rte-toolbar input[type="color"]{
+  height:32px; line-height:30px; padding:0 10px;
+}
+.rte-float input[type="color"]{ width:36px; padding:0; }
+.rte-float .rte-header { touch-action: none; }
+.rte-float { will-change: left, top; }
+
+  
+    /* ===================== Dark Mode Customisation ===================== */
+    /*
+      Glossy Black & Teal palette applied across the entire interface. We
+      define a set of CSS custom properties for backgrounds, text colours,
+      borders and accent hues, then override the existing component
+      definitions. These values produce a modern dark appearance with
+      teal highlights that remain functional for all existing behaviours.
+    */
+    :root {
+      --bg: #0d0f10;
+      --surface: #13171c;
+      --panel: #1a1f24;
+      --border: #2c323a;
+      --text: #e2e8f0;
+      --text-muted: #94a3b8;
+      --accent: #14b8a6;
+      --accent-hover: #0d9488;
+      --danger: #ef4444;
+      --warning: #f59e0b;
+      --info: #22d3ee;
+    }
+    html, body {
+      color-scheme: dark;
+      background: var(--bg);
+      color: var(--text);
+    }
+    /* panels and containers */
+    #main, #quiz-card, #editor, #importer, #progress, #edit-modal, #preview-modal {
+      background: var(--panel);
+      border-color: var(--border);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.6);
+    }
+    .dashboard-card, .settings-panel {
+      background: var(--surface);
+      border-color: var(--border);
+    }
+    .settings-panel {
+      background: #152027;
+    }
+    /* text styling */
+    h1, h2, h3, h4, h5, h6 { color: var(--text); }
+    .stat-value { color: var(--accent); }
+    .stat-label { color: var(--text-muted); }
+    /* form elements */
+    input, textarea, select {
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    input:focus, textarea:focus, select:focus {
+      outline: 2px solid var(--accent);
+      outline-offset: 0;
+    }
+    /* buttons */
+    button, .primary-btn {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 6px 12px;
+      border-radius: 6px;
+      transition: background 0.2s ease, color 0.2s ease;
+    }
+    button:hover, .primary-btn:hover {
+      background: var(--accent);
+      color: var(--bg);
+      border-color: var(--accent);
+    }
+    .danger-btn {
+      background: var(--danger);
+      color: var(--bg);
+      border-color: var(--danger);
+    }
+    .danger-btn:hover {
+      #b91c1c
+    }
+    .warning-btn {
+      background: var(--warning);
+      color: var(--bg);
+      border-color: var(--warning);
+    }
+    .warning-btn:hover {
+      #d97706
+    }
+    /* progress bars */
+    .progress-bar {
+      background: var(--surface);
+      border-radius: 10px;
+    }
+    .progress-fill.good {
+      background: linear-gradient(90deg, var(--accent), var(--accent-hover));
+    }
+    .progress-fill.warning {
+      background: linear-gradient(90deg, var(--warning), #d97706);
+    }
+    .progress-fill.danger {
+      background: linear-gradient(90deg, var(--danger), #b91c1c);
+    }
+    /* table styling */
+    table { color: var(--text); }
+    th, td {
+      background: var(--surface);
+      border-color: var(--border);
+    }
+    tbody tr:hover {
+      background: rgba(20,184,166,0.2);
+    }
+    /* modal overlay adjustments */
+    #edit-modal, #preview-modal {
+      backdrop-filter: blur(2px);
+    }
+    /* chart line colours are set via JS, so we leave Chart.js config unchanged here */
+    /* =================== End Dark Mode Customisation =================== */
+</style>
+<!-- Tabellen-Stile für Richtext-Kommentare und Editor -->
+<style>
+.richbox table,
+.comment-body table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0.5em 0;
+  min-width: 0;
+}
+.richbox th, .richbox td,
+.comment-body th, .comment-body td {
+  border: 1px solid var(--border);
+  padding: 4px 6px;
+  background: var(--surface);
+  color: var(--text);
+}
+.richbox th, .comment-body th {
+  background: var(--panel);
+  font-weight: 600;
+}
+</style>
+</head>
+<body>
+<div id="main">
+  <div class="dashboard-header">
+    <h2>📊 Quiz-Dashboard</h2>
+    <div>
+      <button type="button" onclick="showQuizInit()">Quiz starten</button>
+      <button type="button" onclick="showEditor()">Fragen Datenbank</button>
+      <button type="button" onclick="resetCache()" style="background: var(--warning); color: var(--bg); border: 1px solid var(--warning);">🔄 Quiz-Einstellungen zurücksetzen</button>
+      <button type="button" onclick="resetAllData()" style="background: var(--danger); color: var(--bg); border: 1px solid var(--danger);">🗑️ Alle Quiz-Daten löschen</button>
+    </div>
+  </div>
+
+  <div class="settings-panel">
+    <div class="input-group">
+      <label for="target-repetitions">Wiederholungen bis die Frage gelernt ist:</label>
+      <input type="number" id="target-repetitions" min="1" max="20" value="3" onchange="updateDashboard()">
+    </div>
+    <div class="input-group">
+      <label for="start-date">Startdatum:</label>
+      <input type="date" id="start-date" onchange="updateDashboard()">
+    </div>
+    <div class="input-group">
+      <label for="exam-date">Enddatum:</label>
+      <input type="date" id="exam-date" onchange="updateDashboard()">
+    </div>
+    <div class="input-group">
+      <button type="button" onclick="saveDashboardSettings()" style="margin-top: 28px;">Einstellungen speichern</button>
+    </div>
+  </div>
+
+  <div class="dashboard-card">
+    <h3>📅 Lernplanung</h3>
+    <div id="planning-info"></div>
+    <div class="chart-container">
+      <canvas id="planning-chart"></canvas>
+    </div>
+  </div>
+
+  <div class="dashboard-card" style="margin-top: 20px;">
+    <h3>🎯 Fortschritt nach Themen</h3>
+    <div id="theme-progress"></div>
+  </div>
+</div>
+
+<div id="editor" style="display:none;"></div>
+<div id="importer" style="display:none;"></div>
+<div id="quiz-card" style="display:none;"></div>
+<div id="progress"></div>
+<div id="edit-modal"><div id="modal-content"></div></div>
+<div id="preview-modal"><div id="preview-content"></div></div>
+
+<!-- Native Browser-Dialog -->
+<div class="native-dialog-overlay" id="dialog-overlay"></div>
+<div class="native-dialog" id="native-dialog">
+  <h4 id="dialog-title">Hinweis</h4>
+  <p id="dialog-message"></p>
+  <div class="native-dialog-buttons">
+    <button type="button" id="dialog-cancel" style="display:none;">Abbrechen</button>
+    <button type="button" id="dialog-ok">OK</button>
+  </div>
+</div>
+
+<script>
+/* ========= Globale Variablen ========= */
+const dbKey = 'quizdb_v2';
+const settingsKey = 'quiz_settings';
+let questions = [];
+let quizIdx = 0, quizList = [], quizProg = 0, current = null, quizAnsOrder = [];
+let overallChart = null, planningChart = null;
+let quizCheckedOnce = false; // mehrfaches Prüfen verhindern
+// Editor-Suche (persistiert während der Session)
+let editorSearch = { nr: '', text: '', date: '' };
+// Quiz-Suche (persistiert während der Session)
+// Speichert den Suchtext für das Quiz-Startfenster. Der Wert wird im Suchfeld
+// vorbefüllt und erst durch Klick auf das ✕-Symbol oder ESC gelöscht.
+let quizSearch = { text: '' };
+
+
+/* ========= Hilfsfunktionen ========= */
+function generateId(){ return Math.random().toString(36).slice(2) + Date.now().toString(36); }
+function getActualPercentSnapshot(target){
+  const t = Math.max(1, target || 1);
+  const total = questions.length;
+  if (!total) return 0;
+  const sum = questions.reduce((s,q)=> s + Math.min((q.progress||0)/t, 1), 0);
+  return (sum/total)*100;
+}
+function getLearnedPercentSnapshot(target){
+  const t = Math.max(1, target || 1);
+  const total = questions.length;
+  if (!total) return 0;
+  const learned = questions.filter(q => (q.progress||0) >= t).length;
+  return (learned/total)*100;
+}
+
+/** Datumsformatierung lokal YYYY-MM-DD (ohne TZ-Shift) */
+function fmtYMD(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const day = String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+/** Sicheres Parsen von "YYYY-MM-DD" als lokales Datum */
+function parseYMD(s) {
+  const [y,m,d] = (s||'').split('-').map(Number);
+  return new Date(y, (m||1)-1, d||1);
+}
+
+/** Excel-Seriennummer → Date (lokal) */
+function dateFromExcelSerial(n){
+  // Excel epoch 1899-12-30
+  const ms = (n - 25569) * 86400 * 1000;
+  return new Date(ms);
+}
+
+/** Flexibles Datums-Parsing, gibt ISO-String (yyyy-mm-ddTHH:MM:SSZ) zurück oder null */
+function parseToISO(val){
+  if (val == null || val === '') return null;
+
+  // Bereits Date?
+  if (Object.prototype.toString.call(val) === '[object Date]') {
+    return isNaN(val.getTime()) ? null : val.toISOString();
+  }
+
+  // Excel-Seriennummer (Zahl)
+  if (typeof val === 'number' && isFinite(val)) {
+    const d = dateFromExcelSerial(val);
+    if (!isNaN(d)) return d.toISOString();
+  }
+
+  // String-Parsing
+  const s = String(val).trim();
+
+  // ISO direkt
+  const isoTry = new Date(s);
+  if (!isNaN(isoTry)) return isoTry.toISOString();
+
+  // dd.mm.yyyy oder d.m.yyyy
+  let m = s.match(/^(\d{1,2})[.\-/](\d{1,2})[.\-/](\d{2,4})$/);
+  if (m){
+    let dd = parseInt(m[1],10), mm = parseInt(m[2],10), yyyy = parseInt(m[3],10);
+    if (yyyy < 100) yyyy += 2000; // zweistelliges Jahr
+    const d = new Date(yyyy, mm-1, dd, 12); // 12:00 verhindert TZ-Verschiebung beim ISO-Export
+    return isNaN(d) ? null : d.toISOString();
+  }
+
+  // yyyy.mm.dd
+  m = s.match(/^(\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})$/);
+  if (m){
+    const yyyy = parseInt(m[1],10), mm = parseInt(m[2],10), dd = parseInt(m[3],10);
+    const d = new Date(yyyy, mm-1, dd, 12);
+    return isNaN(d) ? null : d.toISOString();
+  }
+
+  return null;
+}
+
+/* ========= Einstellungen laden/speichern ========= */
+function loadDashboardSettings() {
+  const defaults = {
+    targetRepetitions: 3,
+    startDate: new Date().toISOString().split('T')[0],
+    examDate: new Date(Date.now() + 30*24*60*60*1000).toISOString().split('T')[0]
+  };
+  const settings = JSON.parse(localStorage.getItem(settingsKey) || JSON.stringify(defaults));
+
+  const targetReps = document.getElementById('target-repetitions');
+  const startDate  = document.getElementById('start-date');
+  const examDate   = document.getElementById('exam-date');
+
+  if(targetReps) targetReps.value = settings.targetRepetitions;
+  if(startDate)  startDate.value  = settings.startDate;
+  if(examDate)   examDate.value   = settings.examDate;
+
+  return settings;
+}
+
+function saveDashboardSettings() {
+  const targetRepsEl = document.getElementById('target-repetitions');
+  const startDateEl  = document.getElementById('start-date');
+  const examDateEl   = document.getElementById('exam-date');
+  if(!targetRepsEl || !startDateEl || !examDateEl){ console.error("Dashboard Eingabefelder nicht gefunden"); return; }
+
+  const settings = {
+    targetRepetitions: parseInt(targetRepsEl.value),
+    startDate: startDateEl.value,
+    examDate:  examDateEl.value
+  };
+  localStorage.setItem(settingsKey, JSON.stringify(settings));
+  updateDashboard();
+  showNativeDialog('Einstellungen wurden gespeichert!', 'Gespeichert');
+}
+
+/* ========= Native Dialoge ========= */
+function showNativeDialog(message, title = 'Hinweis', showCancel = false) {
+  return new Promise((resolve) => {
+    document.getElementById('dialog-title').textContent = title;
+    document.getElementById('dialog-message').textContent = message;
+    document.getElementById('dialog-cancel').style.display = showCancel ? 'inline-block' : 'none';
+    document.getElementById('dialog-overlay').style.display = 'block';
+    document.getElementById('native-dialog').style.display = 'block';
+
+    const handleOk = () => { cleanup(); resolve(true); };
+    const handleCancel = () => { cleanup(); resolve(false); };
+    const cleanup = () => {
+      document.getElementById('dialog-overlay').style.display = 'none';
+      document.getElementById('native-dialog').style.display = 'none';
+      document.getElementById('dialog-ok').removeEventListener('click', handleOk);
+      document.getElementById('dialog-cancel').removeEventListener('click', handleCancel);
+    };
+    document.getElementById('dialog-ok').addEventListener('click', handleOk);
+    if (showCancel) document.getElementById('dialog-cancel').addEventListener('click', handleCancel);
+  });
+}
+window.alert  = (message) => showNativeDialog(message, 'Hinweis', false);
+window.confirm= (message) => showNativeDialog(message, 'Bestätigung', true);
+
+/* ========= Datenbank laden/speichern ========= */
+function ensureIds(){
+  // sorge dafür, dass jede Frage eine stabile id & history hat
+  questions.forEach(q => {
+    if (!q.id) q.id = generateId();
+    if (!Array.isArray(q.history)) q.history = [];
+  });
+}
+function loadQuestions() {
+  questions = JSON.parse(localStorage.getItem(dbKey) || '[]');
+  ensureIds();
+}
+function saveQuestions() {
+  localStorage.setItem(dbKey, JSON.stringify(questions));
+  if (document.getElementById('target-repetitions')) updateDashboard();
+}
+// dd.mm.yyyy / d.m.yy / ISO / Excel-Serienzahl robust parsen
+function parseFlexibleDate(val){
+  if (!val && val !== 0) return null;
+
+  // Schon Date?
+  if (val instanceof Date && !isNaN(val)) return val;
+
+  // Excel Serienzahl (z.B. 45924)
+  if (typeof val === 'number' && isFinite(val)) {
+    // Excel-Nullpunkt: 1899-12-30 (inkl. 1900-Leap-Bug-Korrektur)
+    const excelEpoch = Date.UTC(1899, 11, 30);
+    const ms = Math.round(val * 86400000);
+    return new Date(excelEpoch + ms);
+  }
+
+  if (typeof val === 'string') {
+    const s = val.trim();
+
+    // dd.mm.yyyy | d.m.yyyy | dd-mm-yyyy | dd/mm/yyyy
+    const m = s.match(/^(\d{1,2})[.\-\/](\d{1,2})[.\-\/](\d{2,4})$/);
+    if (m){
+      const d = parseInt(m[1],10);
+      const mo = parseInt(m[2],10)-1;
+      let y = m[3].length === 2 ? parseInt('20'+m[3],10) : parseInt(m[3],10);
+      return new Date(y, mo, d);
+    }
+
+    // Fallback: Date.parse für ISO/englische Formate
+    const t = Date.parse(s);
+    if (!isNaN(t)) return new Date(t);
+  }
+
+  return null;
+}
+
+// Alle Datumsfelder in questions → ISO (Tagesmitte, um TZ-Shifts zu vermeiden)
+function normalizeAllDates(){
+  let changed = false;
+  questions.forEach(q=>{
+    ['createdAt','updatedAt','lastAnswered'].forEach(k=>{
+      if (q && q[k] !== undefined && q[k] !== null && q[k] !== '') {
+        const d = parseFlexibleDate(q[k]);
+        if (d && !isNaN(d)) {
+          // 12:00 lokale Zeit → ISO; vermeidet „Vortag/Nachtag“-Sprünge
+          const norm = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0).toISOString();
+          if (q[k] !== norm) { q[k] = norm; changed = true; }
+        } else {
+          // Ungültig → leeren statt kaputten Wert behalten
+          q[k] = null;
+          changed = true;
+        }
+      }
+    });
+
+    // History Feld sicherstellen
+    if (!Array.isArray(q.history)) q.history = [];
+  });
+  if (changed) saveQuestions(); // triggert auch Dashboard/Charts-Refresh
+}
+
+/* ========= Dashboard ========= */
+function updateDashboard(){
+  const targetRepsEl = document.getElementById('target-repetitions');
+  const startDateEl  = document.getElementById('start-date');
+  const examDateEl   = document.getElementById('exam-date');
+
+  if(!targetRepsEl || !startDateEl || !examDateEl){
+    const saved = JSON.parse(localStorage.getItem(settingsKey) || '{}');
+    const settings = {
+      targetRepetitions: saved.targetRepetitions || 3,
+      startDate: saved.startDate || new Date().toISOString().split('T')[0],
+      examDate:  saved.examDate  || new Date(Date.now()+30*24*60*60*1000).toISOString().split('T')[0]
+    };
+    loadQuestions();
+    normalizeAllDates(); // <— NEU: sorgt dafür, dass die Charts gültige ISO-Daten sehen
+
+    return;
+  }
+
+  loadQuestions();
+  const settings = {
+    targetRepetitions: parseInt(targetRepsEl.value),
+    startDate: startDateEl.value,
+    examDate:  examDateEl.value
+  };
+  updatePlanningView(settings);
+  updateThemeProgress(settings);
+}
+function buildConsistentHistory(q){
+  const hist = Array.isArray(q.history) ? q.history.slice() : [];
+  const total = Math.max(0, Number(q.progress) || 0);
+  const have  = hist.reduce((s,e)=> s + (Number(e.delta)||0), 0);
+
+  if (have < total) {
+    const ts = (q.lastAnswered || q.updatedAt || q.createdAt || new Date().toISOString());
+    for (let k = 0; k < (total - have); k++) hist.push({ ts, delta: 1 });
+  }
+  return hist;
+}
+
+/* Tagesverlauf 0..100% (anteilig bis Ziel-Wiederholungen) */
+function calculateDailyProgressPercent(questions, maxRepetitions) {
+  const normalized = (questions || []).map(q => {
+  const qq = { ...q };
+  qq.history = buildConsistentHistory(qq); // <- immer konsistente History nutzen
+  return qq;
+});
+
+
+
+  const hasAnyEvent = normalized.some(q => (q.history || []).length > 0);
+  if (!normalized.length || !hasAnyEvent) return [];
+
+  let minTs = null, maxTs = null;
+  normalized.forEach(q => (q.history || []).forEach(ev => {
+    const t = new Date(ev.ts);
+    if (!isFinite(t)) return;
+    if (!minTs || t < minTs) minTs = t;
+    if (!maxTs || t > maxTs) maxTs = t;
+  }));
+  if (!minTs) minTs = new Date();
+  if (!maxTs) maxTs = new Date();
+
+  const days = [];
+  for (let d = new Date(minTs.getFullYear(), minTs.getMonth(), minTs.getDate());
+       d <= maxTs; d = new Date(d.getTime() + 24*60*60*1000)) {
+    days.push(fmtYMD(d));
+  }
+
+  const totalQuestions = normalized.length;
+  const perQuestionDaily = normalized.map(q => {
+    const map = {};
+    (q.history || []).forEach(ev => {
+      const day = fmtYMD(new Date(ev.ts));
+      map[day] = (map[day] || 0) + (Number(ev.delta) || 0);
+    });
+    return map;
+  });
+
+  const cumPerQuestion = normalized.map(() => 0);
+  const out = [];
+  days.forEach(day => {
+    perQuestionDaily.forEach((m, i) => { if (m[day]) cumPerQuestion[i] += m[day]; });
+    const avgFraction = cumPerQuestion.reduce((s, c) => s + Math.min(c / Math.max(1, maxRepetitions), 1), 0) / totalQuestions;
+    out.push({ date: day, progress: Math.min(100, Math.max(0, avgFraction * 100)) });
+  });
+  return out;
+}
+/* Ermittelt pro Frage das Datum, an dem sie "gelernt" wurde (>= Ziel-Wiederholungen).
+   Gibt eine aufsteigend sortierte Liste von ISO-Daten (YYYY-MM-DD) zurück. */
+function getLearnedDatesSorted(questions, maxRepetitions){
+  const T = Math.max(1, maxRepetitions || 1);
+  const dates = [];
+  (questions || []).forEach(q => {
+    const progress = Number(q.progress) || 0;
+    let learnedDate = null;
+
+    if (Array.isArray(q.history) && q.history.length){
+      // aus History ableiten
+      let cum = 0;
+      const hist = q.history.slice().sort((a,b)=> new Date(a.ts) - new Date(b.ts));
+      for (const ev of hist){
+        cum += Number(ev.delta) || 0;
+        if (cum >= T){ learnedDate = new Date(ev.ts); break; }
+      }
+    } else if (progress >= T){
+      // Fallback ohne History
+      learnedDate = q.lastAnswered ? new Date(q.lastAnswered)
+                : q.updatedAt    ? new Date(q.updatedAt)
+                : q.createdAt    ? new Date(q.createdAt)
+                : null;
+    }
+
+    if (learnedDate && isFinite(learnedDate)) {
+      dates.push(fmtYMD(learnedDate)); // YYYY-MM-DD
+    }
+  });
+  dates.sort(); // lexikographisch richtig
+  return dates;
+}
+
+/* Prozent der „gelernten“ Fragen (>= Ziel-Wdh) pro Tag – robust auch ohne History */
+function calculateDailyLearnedPercent(questions, maxRepetitions) {
+  const T = Math.max(1, maxRepetitions || 1);
+  const qs = (questions || []).map(q => {
+    const qq = { ...q };
+    qq.history = buildConsistentHistory(qq);
+    return qq;
+  });
+
+  const total = qs.length;
+  if (!total) return [];
+
+  const learnedOnISO = [];
+  let minStart = null;
+
+  qs.forEach(q => {
+    // minStart bestimmen
+    if (q.createdAt) {
+      const cd = new Date(q.createdAt);
+      if (isFinite(cd)) minStart = !minStart || cd < minStart ? cd : minStart;
+    }
+    (q.history || []).forEach(ev => {
+      const d = new Date(ev.ts);
+      if (isFinite(d)) minStart = !minStart || d < minStart ? d : minStart;
+    });
+
+    // gelernt-am Datum aus (jetzt konsistenter) History
+    let cum = 0, learnedDate = null;
+    const hist = (q.history || []).slice().sort((a,b) => new Date(a.ts) - new Date(b.ts));
+    for (const ev of hist){
+      cum += Number(ev.delta) || 0;
+      if (cum >= T) { learnedDate = new Date(ev.ts); break; }
+    }
+
+    // Fallback (sollte selten nötig sein)
+    if (!learnedDate && (q.progress || 0) >= T) {
+      learnedDate = q.lastAnswered ? new Date(q.lastAnswered)
+                  : q.updatedAt    ? new Date(q.updatedAt)
+                  : q.createdAt    ? new Date(q.createdAt)
+                  : null;
+    }
+    if (learnedDate && isFinite(learnedDate)) learnedOnISO.push(fmtYMD(learnedDate));
+  });
+
+  // Tagesreihe kumulativ 0..Heute
+  const DAY = 86400000;
+  const start = minStart
+    ? new Date(minStart.getFullYear(), minStart.getMonth(), minStart.getDate())
+    : new Date();
+  const end = new Date();
+
+  learnedOnISO.sort();
+  let acc = 0, j = 0;
+  const out = [];
+  for (let d = new Date(start); d <= end; d = new Date(d.getTime() + DAY)) {
+    const iso = fmtYMD(d);
+    while (j < learnedOnISO.length && learnedOnISO[j] <= iso) { acc++; j++; }
+    out.push({ date: iso, progress: (acc / total) * 100 });
+  }
+  return out;
+}
+
+
+
+
+/* Planung/Statistik */
+function updatePlanningView(settings) {
+  const planningInfoEl = document.getElementById('planning-info');
+  if (!planningInfoEl) return;
+  const totalQuestions = questions.length;
+
+  const learnedQuestions = questions.filter(q => (q.progress || 0) >= settings.targetRepetitions).length;
+
+  const todayStr = new Date().toDateString();
+  const answeredToday = questions.filter(q => q.lastAnswered && new Date(q.lastAnswered).toDateString() === todayStr).length;
+
+  const startDate = new Date(settings.startDate);
+  const examDate  = new Date(settings.examDate);
+  const today     = new Date();
+
+ const DAY = 24 * 60 * 60 * 1000;
+ const s0 = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+ const e0 = new Date(examDate.getFullYear(), examDate.getMonth(), examDate.getDate());
+ const t0 = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+
+ const totalDays    = Math.max(1, Math.round((e0 - s0) / DAY));
+ const daysPassed   = Math.min(totalDays, Math.max(0, Math.floor((t0 - s0) / DAY)));
+ const daysRemaining= Math.max(0, Math.floor((e0 - t0) / DAY));
+ const plannedProgress = (daysPassed / totalDays) * 100;
+
+  const target = settings.targetRepetitions;
+  const actualProgress = totalQuestions > 0
+    ? questions.reduce((sum, q) => sum + Math.min((q.progress || 0) / target, 1), 0) / totalQuestions * 100
+    : 0;
+
+  planningInfoEl.innerHTML = `
+    <div class="stats-grid">
+      <div class="stat-item"><div class="stat-value">${totalQuestions}</div><div class="stat-label">Gesamt Fragen</div></div>
+      <div class="stat-item"><div class="stat-value">${learnedQuestions}</div><div class="stat-label">Fragen gelernt</div></div>
+      <div class="stat-item"><div class="stat-value">${answeredToday}</div><div class="stat-label">Heute beantwortet</div></div>
+      <div class="stat-item"><div class="stat-value">${daysRemaining}</div><div class="stat-label">Tage verbleibend</div></div>
+      <div class="stat-item"><div class="stat-value">${Math.round(plannedProgress)}%</div><div class="stat-label">Geplanter Fortschritt</div></div>
+    </div>
+    <div style="margin:16px 0;">
+      <div>Lernfortschritt mit allen Wiederholungen vs. Planung</div>
+      <div class="progress-bar">
+        <div class="progress-fill ${actualProgress >= plannedProgress ? 'good' : actualProgress >= plannedProgress * 0.8 ? 'warning' : 'danger'}"
+          style="width:${Math.max(actualProgress, 2)}%"></div>
+      </div>
+      <div style="font-size: 0.9em; margin-top: 4px;">
+        Ist: ${Math.round(actualProgress)}% | Soll: ${Math.round(plannedProgress)}%
+      </div>
+    </div>
+  `;
+
+  updatePlanningChart(settings);
+}
+// === Plugin: vertikale "Heute"-Linie =========================================
+(function(){
+  if (!window._todayLineRegistered) {
+    const todayLinePlugin = {
+      id: 'todayLine',
+      afterDatasetsDraw(chart, args, opts) {
+        const xScale = chart.scales.x;
+        const ca = chart.chartArea;
+        if (!xScale || !ca) return;
+
+        const idx = (opts && Number.isFinite(opts.index)) ? opts.index : -1;
+        if (idx < 0 || idx >= (xScale.ticks?.length ?? 0)) return;
+
+        // Pixel-Position des heutigen Ticks
+        const x = xScale.getPixelForValue(chart.data.labels[idx]);
+
+        const ctx = chart.ctx;
+        const color = (opts && opts.color) || '#ef4444';
+        const dash  = (opts && opts.dash)  || [4,4];
+        const label = (opts && opts.label) || 'Heute';
+
+        ctx.save();
+        ctx.setLineDash(dash);
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(x, ca.top);
+        ctx.lineTo(x, ca.bottom);
+        ctx.stroke();
+
+        // Label innerhalb der Chart-Area
+        ctx.setLineDash([]);
+        ctx.fillStyle = color;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        ctx.font = '12px system-ui, sans-serif';
+        ctx.fillText(label, x, ca.top + 4);
+        ctx.restore();
+      }
+    };
+    Chart.register(todayLinePlugin);
+    window._todayLineRegistered = true;
+  }
+})();
+
+/* Chart: Planung / Ist / Gelernte Fragen */
+/* Chart: Planung / Ist / Gelernte Fragen (Ist-Linien unabhängig von Start/Ende) */
+/* Chart: Planung / Ist / Gelernte Fragen — Anzeige nur Start..Ende ±2 Tage */
+function updatePlanningChart(settings) {
+  const canvas = document.getElementById('planning-chart');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  if (window.planningChart) window.planningChart.destroy();
+
+  const DAY = 24*60*60*1000;
+  const start = parseYMD(settings.startDate);
+  const end   = parseYMD(settings.examDate);
+
+  // Wenn Zeitraum ungültig: leeres Chart
+  if (!isFinite(+start) || !isFinite(+end) || start > end) {
+    window.planningChart = new Chart(ctx, { type:'line', data:{labels:[],datasets:[]}, options:{responsive:true,maintainAspectRatio:false} });
+    return;
+  }
+
+  // Anzeige-Fenster = gewählter Zeitraum ± 1Tage
+  const padStart = new Date(start.getFullYear(), start.getMonth(), start.getDate() - 1);
+  const padEnd   = new Date(end.getFullYear(),   end.getMonth(),   end.getDate()   + 1);
+
+  // Ziel-Wiederholungen
+  const targetReps = parseInt(document.getElementById('target-repetitions').value) || 3;
+
+  // Tagesgenaue Reihen aus History (global berechnet, unabhängig vom Zeitraum)
+  const dailyProgressData = calculateDailyProgressPercent(questions, targetReps); // 0..100 kumulativ (alle Wdh. anteilig)
+  const dailyLearnedData  = calculateDailyLearnedPercent(questions, targetReps);  // 0..100 kumulativ (Anteil gelernter Fragen)
+
+  const histMap    = new Map(dailyProgressData.map(d => [d.date, d.progress]));
+  const learnedMap = new Map(dailyLearnedData.map(d => [d.date, d.progress]));
+
+  // Helper: Wert bis zu einem Stichtag (Carry-In) finden
+  const carryFromArr = (arr, isoCut) => {
+    let last = null;
+    for (let i = 0; i < arr.length; i++) {
+      const di = arr[i];
+      if (di.date <= isoCut) last = di.progress;
+      else break; // Arrays sind chronologisch, da wir sie erzeugt haben
+    }
+    return last;
+  };
+
+  // X-Achse für das Anzeige-Fenster
+  const labelsISO = [];
+  for (let d = new Date(padStart.getFullYear(), padStart.getMonth(), padStart.getDate());
+       d <= padEnd; d = new Date(d.getTime() + DAY)) {
+    labelsISO.push(fmtYMD(d));
+  }
+  const labels = labelsISO.map(iso => parseYMD(iso).toLocaleDateString('de-DE', { day:'2-digit', month:'2-digit' }));
+  const todayISO = fmtYMD(new Date());
+  const todayIdx = labelsISO.indexOf(todayISO);  // -1, wenn heute nicht im Fenster liegt
+
+  // Planung linear 0..100 nur innerhalb Start..Ende; außerhalb null (kein Render)
+  const s0 = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+  const e0 = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+  const totalDays = Math.max(1, Math.round((e0 - s0) / DAY));
+  
+  const plannedData = labelsISO.map(iso => {
+    const cur = parseYMD(iso);
+    if (cur < s0 || cur > e0) return null;
+    const i = Math.floor((cur - s0) / DAY); // identisch zur Kachel
+    return Math.min(100, (i / totalDays) * 100);
+  });
+
+
+  // Ist-Linien: Carry-In zum Fensteranfang, danach tagesweise fortschreiben
+  const todayYMD = fmtYMD(new Date());
+
+  let lastKnownAbs = carryFromArr(dailyProgressData, labelsISO[0]);   // kann null sein
+  const actualAbsData = labelsISO.map(iso => {
+    if (histMap.has(iso)) lastKnownAbs = histMap.get(iso);
+    // Optional: wenn du nach "heute" nicht weiter zeichnen willst, verwende:
+    if (iso > todayYMD) return null;
+    return lastKnownAbs;
+  });
+  
+  let lastKnownLearned = carryFromArr(dailyLearnedData, labelsISO[0]); // kann null sein
+  const learnedData = labelsISO.map(iso => {
+    if (learnedMap.has(iso)) lastKnownLearned = learnedMap.get(iso);
+    if (iso > todayYMD) return null;
+    return lastKnownLearned; // in der Zukunft flach weiterzeichnen
+  });
+
+
+  // Render
+  window.planningChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label:'Planung',
+          data: plannedData,
+          borderColor:'#3b82f6',
+          backgroundColor:'rgba(59,130,246,0.1)',
+          tension:0.0,
+          pointRadius:0,
+          spanGaps:false
+        },
+        {
+          label:'Tatsächlicher Fortschritt (absolut)',
+          data: actualAbsData,
+          borderColor:'#22c55e',
+          backgroundColor:'rgba(34,197,94,0.1)',
+          tension:0.0,
+          pointRadius:0,
+          spanGaps:false
+        },
+        {
+          label:'Gelernte Fragen (Anteil)',
+          data: learnedData,
+          borderColor:'#a855f7',
+          backgroundColor:'rgba(168,85,247,0.12)',
+          tension:0.0,
+          pointRadius:0,
+          spanGaps:false,
+          borderDash:[6,3]
+        },
+      ],
+    },
+    options: {
+      responsive:true,
+      maintainAspectRatio:false,
+      interaction:{ mode:'index', intersect:false },
+      plugins:{
+        tooltip:{ callbacks:{ label:(ctx)=> (ctx.raw==null?'':`${ctx.dataset.label}: ${Math.round(ctx.parsed.y)}%`) } },
+        zoom:{ pan:{enabled:true,mode:'x'}, zoom:{wheel:{enabled:true}, pinch:{enabled:true}, mode:'x'}, limits:{x:{minRange:3}} },
+        todayLine: { index: todayIdx, label: 'Heute', color: '#ef4444', dash: [4,4] } // <— NEU
+      },
+      scales:{ y:{ beginAtZero:true, max:100, ticks:{ callback:v=>v+'%' } } }
+    },
+  });
+
+  canvas.addEventListener('dblclick', () =>
+    window.planningChart.resetZoom && window.planningChart.resetZoom(),
+    { passive:true }
+  );
+}
+
+
+
+
+
+/* Themen-Fortschritt */
+function updateThemeProgress(settings) {
+  const themeProgressEl = document.getElementById('theme-progress');
+  if (!themeProgressEl) return;
+
+  const themes = [...new Set(questions.map(q => q.topic).filter(Boolean))];
+  if (themes.length === 0) {
+    themeProgressEl.innerHTML = '<p style="text-align: center; opacity: 0.7;">Keine Themen vorhanden. Fügen Sie Fragen hinzu, um den Fortschritt zu verfolgen.</p>';
+    return;
+  }
+
+  const target = parseInt(document.getElementById('target-repetitions').value) || 3;
+  const themeHtml = themes.map(theme => {
+    const themeQuestions = questions.filter(q => q.topic === theme);
+    const percentage = themeQuestions.length > 0
+      ? themeQuestions.reduce((sum, q) => sum + Math.min((q.progress || 0) / target, 1), 0) / themeQuestions.length * 100
+      : 0;
+
+    const learned = themeQuestions.filter(q => (q.progress || 0) >= target).length;
+    const avgProgress = themeQuestions.length > 0 ? themeQuestions.reduce((s, q) => s + (q.progress || 0), 0) / themeQuestions.length : 0;
+
+    let progressClass = 'good';
+    if (percentage < 50) progressClass = 'danger';
+    else if (percentage < 80) progressClass = 'warning';
+
+    return `
+      <div class="theme-progress">
+        <div class="theme-header">
+          <div class="theme-name">${theme}</div>
+          <div class="theme-stats">${learned}/${themeQuestions.length} Fragen gelernt (Ø ${avgProgress.toFixed(1)}x)</div>
+        </div>
+        <div class="progress-bar">
+          <div class="progress-fill ${progressClass}" style="width: ${Math.max(percentage, 2)}%"></div>
+        </div>
+        <div style="font-size: 0.9em; margin-top: 4px; opacity: 0.8;">
+          ${Math.round(percentage)}% Wiederholungen abgeschlossen
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  themeProgressEl.innerHTML = themeHtml;
+}
+
+/* Sichtbarkeit */
+function showOnly(id) {
+  ['main','editor','importer','quiz-card'].forEach(x=>document.getElementById(x).style.display='none');
+  document.getElementById(id).style.display='';
+  document.getElementById('progress').textContent = '';
+  if(id === 'main') updateDashboard();
+}
+function hideAll(){ showOnly('main'); }
+
+/* Utils */
+
+function escapeHTML(str){ return (''+str).replace(/[<>&"]/g, t => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[t])) }
+function formatDateYYYYMMDD(date) {
+  if (!(date instanceof Date) || isNaN(date)) return '';
+  let y = date.getFullYear();
+  let m = String(date.getMonth()+1).padStart(2,'0');
+  let d = String(date.getDate()).padStart(2,'0');
+  return `${y}-${m}-${d}`;
+}
+function setupEditorSearch(){
+  const input = document.getElementById('editor-search');
+  const clear = document.getElementById('editor-search-clear');
+  const count = document.getElementById('editor-search-count');
+  const rows  = Array.from(document.querySelectorAll('#editor tbody tr'));
+  const total = rows.length;
+
+  const apply = () => {
+    const q = (input.value || '').trim().toLowerCase();
+    let visible = 0;
+    rows.forEach(r => {
+      const hay = (r.getAttribute('data-haystack') || '');
+      const show = !q || hay.includes(q);
+      r.style.display = show ? '' : 'none';
+      if (show) visible++;
+    });
+    count.textContent = q ? `Treffer: ${visible} / ${total}` : `Gesamt: ${total}`;
+  };
+
+  if (input){
+    // Wenn der Suchtext geändert wird, speichern wir ihn in editorSearch.text
+    input.addEventListener('input', () => {
+      editorSearch.text = input.value;
+      apply();
+    });
+    // Mit Escape kann der Suchtext gelöscht werden
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        input.value = '';
+        editorSearch.text = '';
+        apply();
+      }
+    });
+  }
+  if (clear){
+    // Per Klick auf das ✕-Symbol wird der Suchtext gelöscht und der Fokus bleibt auf dem Feld
+    clear.addEventListener('click', () => {
+      input.value='';
+      editorSearch.text = '';
+      input.focus();
+      apply();
+    });
+  }
+  apply(); // Initial zählen
+}
+/* ===== Quiz-Suche ===== */
+// Prüft, ob eine Frage q den Suchbegriff enthält (in Nummer, Thema oder Text).
+function matchesQuizSearch(q, search){
+  if (!search) return true;
+  const hay = ((q.nr || '') + ' ' + (q.topic || '') + ' ' + (q.text || '')).toLowerCase();
+  return hay.includes(search);
+}
+
+// Richtet die Suchleiste im Quiz-Startbildschirm ein. Speichert den Suchtext in
+// quizSearch.text und zählt die Treffer. Aktualisiert auch bei Themen-/
+// Schwierigkeitsänderungen.
+function setupQuizSearch(){
+  const input = document.getElementById('quiz-search');
+  const clearBtn = document.getElementById('quiz-search-clear');
+  const count = document.getElementById('quiz-search-count');
+  const update = () => {
+    quizSearch.text = input ? input.value : '';
+    const topicSel = document.getElementById('qtopic');
+    const difSel   = document.getElementById('qdifficulty');
+    const topic = topicSel ? topicSel.value : '';
+    const dif   = difSel ? difSel.value   : '';
+    const search = (quizSearch.text || '').trim().toLowerCase();
+    const filtered = questions.filter(q =>
+      (!topic || q.topic === topic) &&
+      (!dif   || q.difficulty === dif) &&
+      (!search || matchesQuizSearch(q, search))
+    );
+    if (count){
+      if (search){
+        count.textContent = `Treffer: ${filtered.length}`;
+      } else {
+        count.textContent = `Fragen: ${filtered.length}`;
+      }
+    }
+  };
+  if (input){
+    input.addEventListener('input', update);
+    input.addEventListener('keydown', (e)=>{
+      if (e.key === 'Escape'){
+        input.value = '';
+        quizSearch.text = '';
+        update();
+      }
+    });
+  }
+  if (clearBtn){
+    clearBtn.addEventListener('click', ()=>{
+      if (input){
+        input.value = '';
+        quizSearch.text = '';
+        input.focus();
+        update();
+      }
+    });
+  }
+  // Bei Änderung von Thema oder Schwierigkeit die Trefferzahl aktualisieren
+  const topicSel = document.getElementById('qtopic');
+  const difSel   = document.getElementById('qdifficulty');
+  if (topicSel) topicSel.addEventListener('change', update);
+  if (difSel)   difSel.addEventListener('change', update);
+  update();
+}
+// --- Auswahl sichern/wiederherstellen ---
+let _savedRange = null;
+function saveSelection(){
+  const sel = window.getSelection();
+  if (sel && sel.rangeCount) _savedRange = sel.getRangeAt(0).cloneRange();
+}
+function restoreSelection(){
+  if (!_activeEditable || !_savedRange) return;
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(_savedRange);
+}
+
+
+/* === Richtext: Sicherheit + Helpers === */
+function sanitizeHTML(html){
+  return DOMPurify.sanitize(String(html||''), {
+    // Erlaubte Tags für pasten. Wir erweitern die Liste um Tabellenelemente,
+    // damit kopierte Tabellen (z. B. aus Excel, Webseiten) eingefügt werden können.
+    ALLOWED_TAGS: [
+      'b','i','u','s','em','strong','sub','sup','br',
+      'p','div','span','ul','ol','li','a','img',
+      'h1','h2','h3','h4','h5','h6',
+      // Tabellen und Zellen
+      'table','thead','tbody','tr','td','th'
+    ],
+    // Erlaubte Attribute. Neben den bisherigen Attributen erlauben wir
+    // colspan/rowspan für Tabellenzellen.
+    ALLOWED_ATTR: ['href','target','rel','style','src','alt','title','colspan','rowspan'],
+    FORBID_TAGS: ['script','style']
+  });
+}
+function renderHTML(html){ return sanitizeHTML(html); }
+function stripHTML(html){
+  const d = document.createElement('div'); d.innerHTML = sanitizeHTML(html);
+  return d.textContent || d.innerText || '';
+}
+// Feste Farbpalette
+const COLOR_PRESETS = [
+  { label: 'Schwarz', value: '#000000' },
+  { label: 'Grau',    value: '#808080' },
+  { label: 'Weiß',    value: '#ffffff' },
+  { label: 'Rot',     value: '#ff0000' },
+  { label: 'Blau',    value: '#0000ff' },
+  { label: 'Grün',    value: '#008000' },
+  { label: 'Gelb',    value: '#ffff00' },
+];
+
+// Dropdown-Handler: type = 'foreColor' (Text) | 'hiliteColor' (Hintergrund)
+function onRteColorSelect(type, selectEl){
+  const val = selectEl?.value;
+  if(!val) return;                  // Platzhalter ignorieren
+  restoreSelection();
+  _activeEditable?.focus();
+  try { document.execCommand(type, false, val); }
+  catch(e){
+    if (type === 'hiliteColor') { try { document.execCommand('backColor', false, val); } catch{} }
+    else { try { document.execCommand('foreColor', false, val); } catch{} }
+  }
+  // zurück auf Platzhalter
+  selectEl.selectedIndex = 0;
+}
+
+// Wandelt top-level <div> aus contenteditable in <p> um
+function normalizeRichHTML(html) {
+  let s = String(html || '');
+
+  // Leere Zeilen <div><br></div> → <p>&nbsp;</p>
+  s = s.replace(/<div>\s*<br>\s*<\/div>/gi, '<p>&nbsp;</p>');
+  // Normale Zeilen <div>…</div> → <p>…</p>
+  s = s.replace(/<div>/gi, '<p>').replace(/<\/div>/gi, '</p>');
+
+  return s;
+}
+/* ===== Editor-Suche: Helpers ===== */
+function sameDay(iso, targetDate){
+  if (!iso || !targetDate) return false;
+  const d = new Date(iso);
+  if (!isFinite(+d)) return false;
+  return d.getFullYear() === targetDate.getFullYear()
+      && d.getMonth() === targetDate.getMonth()
+      && d.getDate() === targetDate.getDate();
+}
+
+function filterQuestionsForEditor(list){
+  const nrQ   = (editorSearch.nr   || '').trim();
+  const textQ = (editorSearch.text || '').trim().toLowerCase();
+  const dateQ = (editorSearch.date || '').trim(); // yyyy-mm-dd (input[type=date])
+
+  let targetDate = null;
+  if (dateQ) {
+    const d = parseYMD(dateQ);
+    if (isFinite(+d)) targetDate = d;
+  }
+
+  return list.filter(q => {
+    let ok = true;
+
+    if (nrQ) {
+      ok = ok && String(q.nr ?? '').includes(nrQ);
+    }
+
+    if (textQ) {
+      const hay = [
+        stripHTML(q.text || '').toLowerCase(),
+        String(q.topic || '').toLowerCase(),
+      ].join(' ');
+      ok = ok && hay.includes(textQ);
+    }
+
+    if (targetDate) {
+      ok = ok && (
+        sameDay(q.createdAt,    targetDate) ||
+        sameDay(q.updatedAt,    targetDate) ||
+        sameDay(q.lastAnswered, targetDate)
+      );
+    }
+
+    return ok;
+  });
+}
+
+function renderEditorSearchBar(){
+  return `
+    <div id="editor-searchbar" class="settings-panel" style="margin-top:12px; margin-bottom:12px;">
+      <div class="input-group">
+        <label>Suche Lfd. Nr.</label>
+        <input type="text" id="search-nr" placeholder="z.B. 12" value="${escapeHTML(editorSearch.nr)}">
+      </div>
+      <div class="input-group">
+        <label>Suche Frage / Thema</label>
+        <input type="text" id="search-text" placeholder="Stichwort..." value="${escapeHTML(editorSearch.text)}">
+      </div>
+      <div class="input-group">
+        <label>Datum (Erstellt / Geändert / Zuletzt beantwortet)</label>
+        <input type="date" id="search-date" value="${editorSearch.date}">
+      </div>
+      <div class="input-group" style="align-self:end">
+        <button type="button" id="search-clear">Zurücksetzen</button>
+      </div>
+    </div>
+  `;
+}
+
+function attachEditorSearchHandlers(){
+  const nr   = document.getElementById('search-nr');
+  const text = document.getElementById('search-text');
+  const date = document.getElementById('search-date');
+  const clr  = document.getElementById('search-clear');
+
+  if (nr)   nr.addEventListener('input',  ()=>{ editorSearch.nr   = nr.value;   showEditor(); });
+  if (text) text.addEventListener('input',()=>{ editorSearch.text = text.value; showEditor(); });
+  if (date) date.addEventListener('change',()=>{ editorSearch.date = date.value; showEditor(); });
+  if (clr)  clr.addEventListener('click', ()=>{ editorSearch = { nr:'', text:'', date:'' }; showEditor(); });
+}
+
+/* === Mini-Richtext-Editor (contenteditable) === */
+let _activeEditable = null;
+function applySpanStyle(styleStr){
+  if(!_activeEditable) return;
+  const sel = window.getSelection();
+  if(!sel || sel.rangeCount === 0) return;
+
+  const range = sel.getRangeAt(0);
+
+  // Cursor steht außerhalb? Fokus zurück ins aktive Feld
+  if(!_activeEditable.contains(range.commonAncestorContainer)) {
+    _activeEditable.focus();
+  }
+
+  if (range.collapsed){
+    // Cursor: leeren, gestylten Span einfügen und Cursor hineinsetzen
+    const span = document.createElement('span');
+    span.setAttribute('style', styleStr);
+    span.appendChild(document.createTextNode('\u200B')); // zero-width space
+    range.insertNode(span);
+
+    sel.removeAllRanges();
+    const r = document.createRange();
+    r.setStart(span.firstChild, 1);
+    r.collapse(true);
+    sel.addRange(r);
+  } else {
+    // Auswahl: Inhalt wrappen
+    const frag = range.cloneContents();
+    const div = document.createElement('div');
+    div.appendChild(frag);
+    const wrapper = document.createElement('span');
+    wrapper.setAttribute('style', styleStr);
+    wrapper.innerHTML = div.innerHTML;
+    document.execCommand('insertHTML', false, sanitizeHTML(wrapper.outerHTML));
+  }
+}
+function onRteColor(type, hex){
+  if(!hex) return;
+  restoreSelection();           // <— wichtig
+  _activeEditable.focus();
+  try { document.execCommand(type, false, hex); }
+  catch(e){
+    if (type === 'hiliteColor') { try { document.execCommand('backColor', false, hex); } catch{} }
+    else { try { document.execCommand('foreColor', false, hex); } catch{} }
+  }
+}
+
+
+function onRteFontChange(val){
+  if(!val) return;
+  restoreSelection();           // <— wichtig
+  _activeEditable.focus();
+  applySpanStyle(val === 'inherit' ? 'font-family: inherit;' : 'font-family: ' + val + ';');
+  const s = document.getElementById('rte-font'); if (s) s.selectedIndex = 0;
+}
+
+function onRteSizeChange(val){
+  if(!val) return;
+  restoreSelection();           // <— wichtig
+  _activeEditable.focus();
+  applySpanStyle(val === 'inherit' ? 'font-size: inherit;' : 'font-size: ' + val + '; line-height: 1.4;');
+  const s = document.getElementById('rte-size'); if (s) s.selectedIndex = 0;
+}
+
+function bindEditable(el){
+  if(!el) return;
+  el.setAttribute('contenteditable','true');
+  el.classList.add('richbox');
+
+  // Beim ersten Fokussieren das RTE initialisieren und anzeigen.
+  // Ursprünglich wurde nur das focus‑Ereignis verwendet. In der Praxis
+  // kann der focus bei verschachtelten contenteditable‑Elementen
+  // (z. B. beim Klicken in ein bereits editierbares Feld) nicht mehr
+  // ausgelöst werden. Deshalb ergänzen wir auch einen click‑Listener.
+  el.addEventListener('focus', ()=>{ initFloatingRte(); showRte(el); });
+
+  // Auf jeden Mausklick innerhalb des Elements ebenfalls RTE einblenden.
+  // So wird die Toolbox zuverlässig angezeigt, auch wenn der native
+  // focus nur auf ein Kind‑Element springt.
+  el.addEventListener('click', ()=>{ initFloatingRte(); showRte(el); });
+
+  el.addEventListener('blur', ()=>{
+    setTimeout(()=>{
+      const f = document.getElementById('rte-float');
+      const ae = document.activeElement;
+      const clickedInToolbar = f && f.contains(ae);
+      if (!clickedInToolbar) hideRte();
+      ['keyup','mouseup'].forEach(evt =>
+      el.addEventListener(evt, ()=>{ if(!_rteState.pinned) positionRte(el); }, {passive:true})
+    );
+    }, 0);
+    
+  });
+
+  // --- NEU: HTML-Paste mit Sanitizing, Fallback auf Text ---
+  el.addEventListener('paste', (e)=>{
+    e.preventDefault();
+    const dt    = e.clipboardData || window.clipboardData;
+    const html  = dt && dt.getData ? dt.getData('text/html')  : '';
+    const text  = dt && dt.getData ? dt.getData('text/plain') : '';
+
+    if (html && html.trim()) {
+      // hält Formatierung (fett, kursiv, Listen, Links, …) – aber sicher
+      document.execCommand('insertHTML', false, sanitizeHTML(html));
+    } else if (text) {
+      // Plaintext-Fallback: Zeilenumbrüche erhalten
+      const safe = sanitizeHTML(text).replace(/\r?\n/g, '<br>');
+      document.execCommand('insertHTML', false, safe);
+    }
+  });
+['keyup','mouseup'].forEach(evt =>
+  el.addEventListener(evt, ()=>{ if(!_rteState.pinned) positionRte(el); }, {passive:true})
+);
+}
+
+function rteCmd(cmd, val){
+  if(!_activeEditable) return;
+  restoreSelection();           // <— wichtig
+  _activeEditable.focus();
+  document.execCommand(cmd, false, val || null);
+}
+
+
+function insertSymbol(sym){
+  if(!_activeEditable || !sym) return;
+  restoreSelection();           // <— wichtig
+  _activeEditable.focus();
+  document.execCommand('insertText', false, sym);
+}
+
+function insertImageFromFile(){
+  if(!_activeEditable) return;
+  const inp = document.createElement('input');
+  inp.type='file'; inp.accept='image/*';
+  inp.onchange=()=>{
+    const f = inp.files && inp.files[0]; if(!f) return;
+    const r = new FileReader();
+    r.onload=()=>{ document.execCommand('insertImage', false, r.result); };
+    r.readAsDataURL(f);
+  };
+  inp.click();
+}
+
+// Fügt eine Tabelle in das aktuelle Rich-Text-Feld ein. Fragt nach Zeilen-
+// und Spaltenanzahl, beschränkt auf maximal 10. Leere Zellen werden mit
+// &nbsp; befüllt, sodass sie sichtbar sind.
+function insertTable(){
+  if(!_activeEditable) return;
+  let rows = parseInt(prompt('Anzahl Zeilen:', '2'), 10);
+  let cols = parseInt(prompt('Anzahl Spalten:', '2'), 10);
+  if (!rows || rows < 1 || !cols || cols < 1) return;
+  rows = Math.min(rows, 10);
+  cols = Math.min(cols, 10);
+  let html = '<table>';
+  for (let r = 0; r < rows; r++){
+    html += '<tr>';
+    for (let c = 0; c < cols; c++){
+      html += '<td>&nbsp;</td>';
+    }
+    html += '</tr>';
+  }
+  html += '</table>';
+  restoreSelection();
+  _activeEditable.focus();
+  try {
+    document.execCommand('insertHTML', false, html);
+  } catch(e) {
+    document.execCommand('insertHTML', false, html);
+  }
+}
+
+let _rteState = { pinned: false };
+function saveRteBoxState(){
+  const f = document.getElementById('rte-float');
+  if (!f) return;
+
+  // nicht speichern, wenn unsichtbar oder (noch) kollabiert
+  const cs = getComputedStyle(f);
+  if (cs.display === 'none') return;
+  const w = f.offsetWidth, h = f.offsetHeight;
+  if (w < 50 || h < 50) return;
+
+  const pos = {
+    left: parseInt(f.style.left) || f.offsetLeft || 12,
+    top:  parseInt(f.style.top)  || f.offsetTop  || 12,
+    width:  w,
+    height: h,
+    pinned: !!_rteState.pinned
+  };
+  localStorage.setItem('rte_pos', JSON.stringify(pos));
+}
+
+
+function initFloatingRte(){
+  if (document.getElementById('rte-float')) return;
+
+  const box = document.createElement('div');
+  box.id = 'rte-float';
+  box.className = 'rte-float';
+  box.innerHTML = `
+  <div class="rte-header" id="rte-handle">
+    <span>✏️ Toolbox</span>
+    <div class="right">
+      <button type="button" id="rte-pin" class="pin" title="Position fixieren">📌</button>
+      <button type="button" id="rte-close" title="Schließen">✖</button>
+    </div>
+  </div>
+
+  <div class="rte-toolbar">
+    <button type="button" onclick="rteCmd('bold')"><b>B</b></button>
+    <button type="button" onclick="rteCmd('italic')"><i>I</i></button>
+    <button type="button" onclick="rteCmd('underline')"><u>U</u></button>
+    <button type="button" onclick="rteCmd('strikeThrough')"><s>S</s></button>
+    <button type="button" onclick="rteCmd('insertUnorderedList')">• Liste</button>
+    <button type="button" onclick="rteCmd('insertOrderedList')">1. Liste</button>
+    <button type="button" onclick="rteCmd('justifyLeft')">⟸</button>
+    <button type="button" onclick="rteCmd('justifyCenter')">⇔</button>
+    <button type="button" onclick="rteCmd('justifyRight')">⟹</button>
+
+<select id="rte-fg" title="Textfarbe" onchange="onRteColorSelect('foreColor', this)">
+  <option value="">Textfarbe</option>
+  <option value="#000000">Schwarz</option>
+  <option value="#808080">Grau</option>
+  <option value="#ffffff">Weiß</option>
+  <option value="#ff0000">Rot</option>
+  <option value="#0000ff">Blau</option>
+  <option value="#008000">Grün</option>
+  <option value="#ffff00">Gelb</option>
+</select>
+
+<select id="rte-bg" title="Hintergrundfarbe" onchange="onRteColorSelect('hiliteColor', this)">
+  <option value="">Hintergrund</option>
+  <option value="#000000">Schwarz</option>
+  <option value="#808080">Grau</option>
+  <option value="#ffffff">Weiß</option>
+  <option value="#ff0000">Rot</option>
+  <option value="#0000ff">Blau</option>
+  <option value="#008000">Grün</option>
+  <option value="#ffff00">Gelb</option>
+</select>
+
+
+
+    <select id="rte-font" title="Schriftart" onchange="onRteFontChange(this.value)">
+      <option value="">Schriftart</option>
+      <option value="inherit">Standard</option>
+      <option value="'Segoe UI', Roboto, Arial, sans-serif">System Sans</option>
+      <option value="Arial, Helvetica, sans-serif">Arial</option>
+      <option value="Georgia, 'Times New Roman', serif">Georgia/Times</option>
+      <option value="'Times New Roman', Times, serif">Times New Roman</option>
+      <option value="'Courier New', Courier, monospace">Courier New</option>
+      <option value="Consolas, 'Courier New', monospace">Consolas</option>
+      <option value="monospace">Monospace</option>
+    </select>
+
+    <select id="rte-size" title="Schriftgröße" onchange="onRteSizeChange(this.value)">
+      <option value="">Größe</option>
+      <option value="inherit">Standard</option>
+      <option value="12px">12</option><option value="14px">14</option>
+      <option value="16px">16</option><option value="18px">18</option>
+      <option value="20px">20</option><option value="24px">24</option>
+      <option value="28px">28</option><option value="32px">32</option>
+    </select>
+
+    <button type="button" onclick="(function(){let url=prompt('Link-URL:'); if(url){rteCmd('createLink', url);}})()">🔗</button>
+    <button type="button" onclick="insertImageFromFile()">🖼️ Bild</button>
+    <button type="button" onclick="insertTable()">📊 Tabelle</button>
+    <select onchange="insertSymbol(this.value); this.selectedIndex=0;">
+      <option>Zeichen…</option><option>±</option><option>→</option><option>←</option>
+      <option>≥</option><option>≤</option><option>µ</option><option>Ω</option><option>∞</option>
+    </select>
+    <button type="button" onclick="rteCmd('removeFormat')">Format entfernen</button>
+  </div>
+`;
+
+
+ try { document.execCommand('styleWithCSS', false, true); } catch {}
+  document.body.appendChild(box);
+
+  // Schließen
+  document.getElementById('rte-close').onclick = hideRte;
+
+  // Anpinnen
+  const pinBtn = document.getElementById('rte-pin');
+  pinBtn.onclick = ()=>{
+    _rteState.pinned = !_rteState.pinned;
+    pinBtn.classList.toggle('active', _rteState.pinned);
+    if (!_rteState.pinned && _activeEditable) positionRte(_activeEditable);
+  };
+
+// Toolbar-Klicks: Auswahl sichern; nur Buttons "blocken", nicht Selects etc.
+box.addEventListener('mousedown', (e)=>{
+  saveSelection();
+  const isButton = e.target.closest('button');
+  if (isButton && _activeEditable) {
+    e.preventDefault();           // Buttons sollen nicht den Fokus klauen
+    _activeEditable.focus();
+  }
+});
+
+
+
+// gespeicherte Position/Größe/Pin laden
+const saved = JSON.parse(localStorage.getItem('rte_pos') || '{}');
+if (Number.isFinite(saved.left))  box.style.left   = saved.left + 'px';
+if (Number.isFinite(saved.top))   box.style.top    = saved.top  + 'px';
+if (Number.isFinite(saved.width)  && saved.width  > 200) box.style.width  = saved.width  + 'px';
+if (Number.isFinite(saved.height) && saved.height > 120) box.style.height = saved.height + 'px';
+if (saved.pinned) {
+  _rteState.pinned = true;
+  pinBtn.classList.add('active');
+}
+
+// Größe beobachten (bei „resize: both“) und speichern
+const ro = new ResizeObserver(()=> saveRteBoxState());
+ro.observe(box);
+
+  // Draggen über Header
+  makeRteDraggable(box, document.getElementById('rte-handle'));
+
+  // Repositionieren bei Scroll/Resize (nur wenn nicht angepinnt)
+  window.addEventListener('scroll', ()=>{ if (_activeEditable && !_rteState.pinned) positionRte(_activeEditable); }, {passive:true});
+  window.addEventListener('resize', ()=>{ if (_activeEditable && !_rteState.pinned) positionRte(_activeEditable); });
+}
+
+function showRte(el){
+  _activeEditable = el;
+  el.classList.add('rte-target');
+  const f = document.getElementById('rte-float');
+  if (f) {
+    f.style.display = 'block';
+    if (!_rteState.pinned) positionRte(el);
+  }
+}
+function hideRte(){
+  const f = document.getElementById('rte-float');
+  if (f) f.style.display = 'none';
+  if (_activeEditable) _activeEditable.classList.remove('rte-target');
+  _activeEditable = null;
+}
+
+function positionRte(el){
+  const f = document.getElementById('rte-float'); if (!f) return;
+  if (_rteState.pinned) return;
+
+  const r = el.getBoundingClientRect();
+  const top = Math.max(8, window.scrollY + r.top - f.offsetHeight - 8);   // oberhalb des Feldes
+  const left = Math.min(window.scrollX + r.left, window.scrollX + window.innerWidth - f.offsetWidth - 8);
+  f.style.top = `${top}px`;
+  f.style.left = `${left}px`;
+}
+
+function makeRteDraggable(box, handle){
+  let dragging = false, startX=0, startY=0, startLeft=0, startTop=0, pid = null;
+
+  const onPointerDown = (e)=>{
+    // In der Header-Leiste: nicht starten, wenn ein interaktives Element geklickt wurde
+    if (e.target.closest('button,select,input,label,a')) return;
+
+    dragging = true;
+    pid = e.pointerId;
+    try { handle.setPointerCapture(pid); } catch {}
+    startX = e.clientX; startY = e.clientY;
+    startLeft = box.offsetLeft; startTop = box.offsetTop;
+    e.preventDefault();
+  };
+
+  const onPointerMove = (e)=>{
+    if(!dragging) return;
+    const dx = e.clientX - startX, dy = e.clientY - startY;
+    let left = startLeft + dx, top = startTop + dy;
+
+    // im Viewport halten
+    const minL = window.scrollX + 8;
+    const minT = window.scrollY + 8;
+    const maxL = window.scrollX + window.innerWidth  - box.offsetWidth  - 8;
+    const maxT = window.scrollY + window.innerHeight - box.offsetHeight - 8;
+    left = Math.min(Math.max(left, minL), Math.max(minL, maxL));
+    top  = Math.min(Math.max(top,  minT), Math.max(minT, maxT));
+
+    box.style.left = left + 'px';
+    box.style.top  = top  + 'px';
+
+    // beim manuellen Verschieben automatisch "pinnen"
+    _rteState.pinned = true;
+    document.getElementById('rte-pin')?.classList.add('active');
+  };
+
+  const stop = ()=>{
+    if(!dragging) return;
+    dragging = false;
+    try { handle.releasePointerCapture(pid); } catch {}
+    pid = null;
+    saveRteBoxState();
+  };
+
+  handle.addEventListener('pointerdown', onPointerDown);
+  handle.addEventListener('pointermove', onPointerMove);
+  handle.addEventListener('pointerup', stop);
+  handle.addEventListener('pointercancel', stop);
+  handle.addEventListener('lostpointercapture', stop);
+}
+
+
+
+/* ===== Scroll-Persistenz für Editor ===== */
+function getEditorScrollContainer(){
+  return document.querySelector('#editor .scroll-table-container');
+}
+function saveEditorScroll(anchorId){
+  const c = getEditorScrollContainer();
+  const prev = JSON.parse(sessionStorage.getItem('editorScroll')||'{}');
+  const state = {
+    top: c ? c.scrollTop : (prev.top || 0),
+    anchorId: anchorId || prev.anchorId || null,
+  };
+  sessionStorage.setItem('editorScroll', JSON.stringify(state));
+}
+function restoreEditorScroll(){
+  const c = getEditorScrollContainer();
+  if(!c) return;
+  const s = JSON.parse(sessionStorage.getItem('editorScroll')||'{}');
+  if (s.anchorId) {
+    const row = document.querySelector(`#editor tr[data-qid="${s.anchorId}"]`);
+    if (row) {
+      row.scrollIntoView({ block: 'center' });
+      row.classList.add('flash-highlight');
+      setTimeout(()=>row.classList.remove('flash-highlight'), 1200);
+      return;
+    }
+  }
+  if (typeof s.top === 'number') c.scrollTop = s.top;
+}
+
+
+/* ===== Editor ===== */
+function showEditor() {
+  loadQuestions();
+  let missingSolutionCount = questions.filter(q => !q.solution || q.solution.length === 0).length;
+  let missingAnswersCount = questions.filter(q => !q.answers || q.answers.length === 0).length;
+
+  let missingSolutionNrs = questions.filter(q => !q.solution || q.solution.length === 0).map(q => q.nr || '?');
+  let missingAnswersNrs  = questions.filter(q => !q.answers  || q.answers.length  === 0).map(q => q.nr || '?');
+
+  let html = `<h3>Fragen Datenbank <span style="font-size:0.85em; opacity:0.7;">(Doppelklick für Bearbeitung)</span></h3>`;
+
+
+  if(missingSolutionCount > 0 || missingAnswersCount > 0) {
+    html += `<div style="margin-bottom:16px; padding:12px; background:color-mix(in srgb, Field 80%, yellow 20%); border:1px solid color-mix(in srgb, ButtonBorder 70%, orange 30%); border-radius:6px;">`;
+    if(missingSolutionCount > 0) {
+      html += `<div style="font-weight:bold; margin-bottom:8px;">⚠️ ${missingSolutionCount} Fragen ohne Lösung: Nr. ${missingSolutionNrs.join(', ')}</div>`;
+    }
+    if(missingAnswersCount > 0) {
+      html += `<div style="font-weight:bold;">❌ ${missingAnswersCount} Fragen ohne Antworten: Nr. ${missingAnswersNrs.join(', ')}</div>`;
+    }
+    html += `</div>`;
+  }
+     // Gefilterte Liste erzeugen
+     const filteredQuestions = questions; // Live-Filter passiert in der Tabelle
+
+  html += `<div style="margin-bottom:20px;">
+    <button type="button" onclick="newQuestion()">Neue Frage</button>
+    <button type="button" onclick="showImport()">Import</button>
+    <button type="button" onclick="exportQuestions()">Export</button>
+    <button type="button" onclick="resetProgress()">Fortschritt-Reset</button>
+    <button type="button" class="delete-all-btn" onclick="deleteAllQuestions()">Lösche alle Fragen</button>
+    <button type="button" onclick="hideAll()">Zurück zum Dashboard</button>
+    </div>`; 
+  // Einzeilige Suchleiste (oberhalb der Tabelle)
+  // Suchleiste: Suchtext persistent halten. Der aktuelle Suchbegriff wird in
+  // editorSearch.text gespeichert und hier als value vorbelegt. Nur durch
+  // Klick auf das ✕-Symbol oder ESC wird der Suchtext gelöscht.
+  html += `<div class="editor-searchbar" style="display:flex; gap:8px; align-items:center; margin:12px 0;">
+    <input id="editor-search" type="text" placeholder="Suche in Nr. / Thema / Frage / Datum …" style="flex:1; min-width:200px;" value="${escapeHTML(editorSearch.text || '')}">
+    <button type="button" id="editor-search-clear" title="Suche löschen">✕</button>
+    <span id="editor-search-count" style="opacity:.75; font-size:.9em;"></span>
+  </div>`;
+  // Tabellencontainer
+   html += `<div class="scroll-table-container"><table>
+    <thead>
+      <tr>
+        <th></th><th>Lfd. Nr.</th><th>Thema</th><th>Frage</th><th>Schwierigkeit</th><th>Fortschritt</th><th>Zuletzt beantwortet</th>
+      </tr>
+    </thead>
+    <tbody>
+  `;
+  filteredQuestions.forEach((q,i) => {
+  let hasNoSolution = (!q.solution || q.solution.length === 0);
+  let hasNoAnswers  = (!q.answers  || q.answers.length  === 0);
+  let rowClass = (hasNoSolution || hasNoAnswers) ? 'class="missing-solution-row"' : '';
+  let lastAnsweredFormatted = q.lastAnswered ? new Date(q.lastAnswered).toLocaleDateString('de-DE') : '-';
+
+  // Such-„Heuhaufen“: Nr, Thema, Fragetext, alle Datums-Varianten (de-DE + yyyy-mm-dd)
+  const hayDate = d => {
+    if (!d) return '';
+    const x = new Date(d);
+    if (!isFinite(+x)) return '';
+    return `${x.toLocaleDateString('de-DE')} ${fmtYMD(x)}`;
+  };
+  const haystack = [
+    String(q.nr ?? ''),
+    String(q.topic ?? ''),
+    stripHTML(q.text ?? ''),
+    hayDate(q.createdAt),
+    hayDate(q.updatedAt),
+    hayDate(q.lastAnswered),
+  ].join(' ').toLowerCase();
+
+  html += `<tr ondblclick="editQuestion(questions.findIndex(x => x.id === '${q.id}'))"
+               ${rowClass}
+               data-qid="${q.id}"
+               data-haystack="${escapeHTML(haystack)}">
+    <td><button type="button" class="delete-q-btn"
+      onclick="event.stopPropagation(); deleteQuestion(questions.findIndex(x => x.id === '${q.id}'));">🗑️</button></td>
+    <td>${escapeHTML(q.nr ?? '')}</td>
+    <td>${escapeHTML(q.topic ?? '')}</td>
+    <td>${stripHTML(q.text ?? '')}</td>
+    <td>${escapeHTML(q.difficulty ?? '')}</td>
+    <td>${q.progress||0}</td>
+    <td style="font-size:0.9em;">${lastAnsweredFormatted}</td>
+  </tr>`;
+});
+
+  html += `</tbody></table></div>`;
+  document.getElementById('editor').innerHTML = html;
+  setupEditorSearch(); // neue einzeilige Suche initialisieren
+  showOnly('editor');
+  setTimeout(restoreEditorScroll, 0);
+}
+
+async function deleteQuestion(idx) {
+  if(await confirm("Soll diese Frage wirklich gelöscht werden?")) {
+    questions.splice(idx,1);
+    saveQuestions();
+    showEditor();
+  }
+}
+
+async function deleteAllQuestions() {
+  if(await confirm("⚠️ WARNUNG: Alle lokalen Fragen werden unwiderruflich gelöscht!\n\nMöchten Sie wirklich ALLE Fragen löschen?")) {
+    if(await confirm("🔴 LETZTE WARNUNG: Dieser Vorgang kann nicht rückgängig gemacht werden!\n\nAlle " + questions.length + " Fragen werden gelöscht. Fortfahren?")) {
+      questions = [];
+      saveQuestions();
+      showEditor();
+      await alert("✅ Alle Fragen wurden gelöscht.");
+    }
+  }
+}
+
+async function exportQuestions() {
+  loadQuestions();
+  if(questions.length === 0) {
+    await alert("Keine Fragen zum Exportieren vorhanden!");
+    return;
+  }
+  const header = ['Lfd Nummer','Thema','Frage','Auswahlantworten','Richtige Antworten','Kommentar','Fortschritt','Schwierigkeit','Erstellt am','Zuletzt geändert','Zuletzt beantwortet','ID'];
+  const rows = [header];
+  for (const q of questions) {
+    const answers = (q.answers || []).map(stripHTML);
+    const solution = q.solution || [];
+    const correctAnswers = solution.map(idx => answers[idx]).filter(Boolean);
+    rows.push([
+      q.nr || '',
+      q.topic || '',
+      stripHTML(q.text || ''),
+      answers.join('\n'),
+      correctAnswers.join('\n'),
+      stripHTML(q.comment || ''),
+      q.progress || 0,
+      q.difficulty || 'leicht',
+      q.createdAt ? formatDateYYYYMMDD(new Date(q.createdAt)) : '',
+      q.updatedAt ? formatDateYYYYMMDD(new Date(q.updatedAt)) : '',
+      q.lastAnswered ? formatDateYYYYMMDD(new Date(q.lastAnswered)) : '',
+      q.id || ''
+    ]);
+  }
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Fragen');
+  const filename = `Quiz_Export_${new Date().toISOString().split('T')[0]}.xlsx`;
+  XLSX.writeFile(wb, filename);
+  await alert(`✅ Export erfolgreich!\n${questions.length} Fragen wurden als "${filename}" gespeichert.`);
+}
+
+async function resetProgress() {
+  if(await confirm("⚠️ WARNUNG: Der Fortschritt und alle 'Zuletzt beantwortet' Daten aller Fragen werden auf Null gesetzt!\n\nFortfahren?")) {
+    questions.forEach(q => { q.progress = 0; q.lastAnswered = null; q.history = []; });
+    saveQuestions();
+    showEditor();
+    await alert("✅ Fortschritt aller Fragen und History wurden zurückgesetzt.");
+  }
+}
+
+function showEditDialog(q, idx) {
+  loadQuestions();
+  const themenSet = new Set(questions.map(qq => qq.topic).filter(Boolean));
+  const themenOpt = Array.from(themenSet).map(t => `<option value="${escapeHTML(t)}">`).join('');
+
+  const html = `
+    <div class="modal-header" id="modal-header">
+      <h4 style="margin:0;">${idx>=0?'Frage bearbeiten':'Neue Frage'}</h4>
+    </div>
+    <div>
+      <input type="hidden" id="qid" value="${q.id || ''}">
+      <label>Lfd.Nr.: <input type="number" id="nr" value="${q.nr||''}" style="width: 100px;"></label><br>
+      <label>Thema: <input id="topic" list="themenlist" value="${escapeHTML(q.topic||'')}" style="width:300px;">
+        <datalist id="themenlist">${themenOpt}</datalist></label><br>
+
+      <div style="margin-top:8px;font-weight:600">Fragetext</div>
+      
+      <div id="qtext">${renderHTML(q.text||'')}</div>
+
+      <label style="display:block;margin-top:12px;">Schwierigkeit:
+        <!-- Die ID des Schwierigkeits-Selects wird umbenannt, um Kollisionen
+             mit dem Quiz-Filter (#qdifficulty) zu vermeiden. -->
+        <select id="ed-qdifficulty">
+          <option value="leicht" ${q.difficulty==='leicht'?'selected':''}>leicht</option>
+          <option value="schwer" ${q.difficulty==='schwer'?'selected':''}>schwer</option>
+        </select>
+      </label>
+      <label>Fortschritt: <input type="number" id="qprogress" min="0" step="1" value="${q.progress || 0}" style="width: 100px;"></label><br>
+
+      <div style="margin-top:10px;">Auswahlantworten <span style="opacity:.8">(mindestens eine Lösung markieren)</span></div>
+      <div id="answers"></div>
+      <button type="button" id="add-ans-btn" title="Antwort hinzufügen" onclick="addAnswerField()">➕ Antwort</button>
+      
+      <div style="margin-top:12px;font-weight:600">Kommentar</div>
+      <div id="qcomment" style="min-height:220px; max-height:60vh; overflow:auto;">
+        ${renderHTML(q.comment||'')}
+        </div>
+
+      <div style="margin-top:12px;">
+        <button type="button" onclick="saveEdit(${idx})">Speichern</button>
+        <button type="button" onclick="closeModal()">Abbruch</button>
+      </div>
+    </div>`;
+
+  document.getElementById('modal-content').innerHTML = html;
+  document.getElementById('edit-modal').style.display = 'flex';
+
+  setTimeout(() => {
+    bindEditable(document.getElementById('qtext'));
+    bindEditable(document.getElementById('qcomment'));
+    loadAnswerFields(q);
+    makeDraggable('modal-content','modal-header');
+    bringToFront('edit-modal');
+  }, 20);
+}
+
+
+function autoGrow(el) { el.style.height = "auto"; el.style.height = (el.scrollHeight+2)+"px"; }
+
+function answerField(txt, checked, idx) {
+  let d = document.createElement('div');
+  d.className = 'answer';
+  d.innerHTML = `
+    <button type="button" class="delete-ans-btn" onclick="deleteAnswerField(${idx})">🗑️</button>
+    <input type="checkbox" class="chk" ${checked ? 'checked' : ''} title="richtig?">
+    <div class="anstxt">${renderHTML(txt || '')}</div>`;
+  setTimeout(()=>{
+    const box = d.querySelector('.anstxt');
+    bindEditable(box);
+  },0);
+  return d;
+}
+
+
+function bindDelBtns() {
+  let ansDiv = document.getElementById('answers');
+  Array.from(ansDiv.querySelectorAll('.delete-ans-btn')).forEach((btn, i) => {
+    btn.onclick = function() { deleteAnswerField(i); };
+  });
+}
+
+function loadAnswerFields(q) {
+  let answers = q.answers || [];
+  let solution = q.solution || [];
+  let ansDiv = document.getElementById('answers');
+  ansDiv.innerHTML = '';
+  for(let i=0;i<answers.length;i++) ansDiv.appendChild(answerField(answers[i], solution.includes(i), i));
+  bindDelBtns();
+}
+
+function addAnswerField() {
+  let ansDiv = document.getElementById('answers');
+  if(ansDiv.querySelectorAll('.answer').length >= 6) { alert("Maximal 6 Auswahlantworten"); return; }
+  ansDiv.appendChild(answerField('', false, ansDiv.querySelectorAll('.answer').length));
+  bindDelBtns();
+}
+function deleteAnswerField(idx) {
+  let ansDiv = document.getElementById('answers');
+  if(ansDiv.children[idx]) ansDiv.removeChild(ansDiv.children[idx]);
+  bindDelBtns();
+}
+
+function makeDraggable(contentId, headerId){
+  let modal = document.getElementById(contentId);
+  let header = document.getElementById(headerId);
+  if(!header) return;
+  let shiftX=0, shiftY=0, dragging=false;
+  header.onmousedown = (e)=>{
+    e.preventDefault();
+    let rect = modal.getBoundingClientRect();
+    shiftX = e.clientX - rect.left;
+    shiftY = e.clientY - rect.top;
+    document.onmouseup = ()=>{ dragging=false; document.onmouseup=null; document.onmousemove=null; };
+    document.onmousemove = (e2)=>{
+      if(!dragging) dragging=true;
+      e2.preventDefault();
+      let newLeft = e2.clientX - shiftX;
+      let newTop  = e2.clientY - shiftY;
+      newLeft = Math.max(0, Math.min(window.innerWidth - modal.offsetWidth, newLeft));
+      newTop  = Math.max(0, Math.min(window.innerHeight - modal.offsetHeight, newTop));
+      modal.style.left = newLeft + "px";
+      modal.style.top  = newTop  + "px";
+      modal.style.position = 'absolute';
+    };
+  };
+}
+function bringToFront(modalId){ let m=document.getElementById(modalId); if(m) m.style.zIndex=9999; }
+function closeModal(){ document.getElementById('edit-modal').style.display='none'; document.getElementById('preview-modal').style.display='none'; }
+
+function nextNr(){
+  loadQuestions();
+  let used = new Set(questions.map(q=>parseInt(q.nr)||0));
+  let nr = 1; while(used.has(nr)) nr++;
+  return nr;
+}
+function newQuestion(){ showEditDialog({ id: generateId(), nr: nextNr(), topic:'', text:'', answers:[], solution:[], comment:'', progress:0, difficulty:'leicht', history:[] }, -1); }
+window.editQuestion = function(idx){ showEditDialog(questions[idx], idx); };
+
+/* ===== Import ===== */
+function showImport() {
+  let html = `<h3>Import aus Excel/CSV-Datei</h3>
+    <input type="file" id="file-input"><br>
+    <button type="button" onclick="showEditor()">Zurück</button>
+    <div style="font-size:0.95em; opacity:0.8; margin: 16px 0;">
+      <strong>Benötigte Spalten:</strong> Lfd Nummer, Thema, Frage, Auswahlantworten, Richtige Antworten, Kommentar, Fortschritt, Schwierigkeit<br>
+      <strong>Optionale Spalten:</strong> Erstellt am, Zuletzt geändert, Zuletzt beantwortet, ID<br>
+      Antworten und Lösungen einzeln (Zeilenumbruch in Zellen).<br>
+      <strong>Datumsformate werden automatisch erkannt (z.B. dd.mm.yyyy → yyyy-mm-dd).</strong>
+    </div>
+    <div id="import-preview"></div>`;
+  document.getElementById('importer').innerHTML = html;
+  showOnly('importer');
+  document.getElementById('file-input').addEventListener('change', handleImport);
+}
+
+function nameArrayKeys(headerArr){
+  let out={};
+  headerArr.forEach((h,i)=>{ if(typeof h === "string" && h.trim() !== "") out[h.trim()] = i; });
+  return out;
+}
+
+function handleImport(e) {
+  let f = e.target.files[0];
+  if (!f) return;
+  let reader = new FileReader();
+  reader.onload = function(evt) {
+    let data = evt.target.result;
+    let workbook = XLSX.read(data, {type: 'binary'});
+    let sheet = workbook.Sheets[workbook.SheetNames[0]];
+    let arr = XLSX.utils.sheet_to_json(sheet, {header:1, blankrows:false});
+    let nak = nameArrayKeys(arr[0] || []);
+    let previewList = [];
+    let invalidCount = 0, partialMatchCount = 0;
+    let partialMatchDetails = [];
+
+    // vorhandene Nummern sichern, um Kollisionen zu vermeiden
+    const existingNrs = new Set(questions.map(q=>parseInt(q.nr)||0));
+
+    for (let i=1; i<arr.length; i++) {
+      let row = arr[i]; if(!row) continue;
+      if(!row[nak['Frage']] || !row[nak['Auswahlantworten']]) continue;
+
+      // Nummer übernehmen oder neue freie wählen
+      let rawNr = parseInt(row[nak['Lfd Nummer']])||1;
+      let nr = rawNr;
+      while(existingNrs.has(nr)) nr++;
+      existingNrs.add(nr);
+
+      // Antworten parsen/trimmen
+      let ansList = (row[nak['Auswahlantworten']]+'').split(/\r?\n/).map(x=>x.trim()).filter(x=>x.length>0);
+      let solList = (row[nak['Richtige Antworten']]+'').split(/\r?\n/).map(x=>x.trim()).filter(x=>x.length>0);
+
+      // Lösungen anhand der ersten 18 Zeichen matchen
+      let solution = [], unmatchedSolutions = [];
+      solList.forEach(solAnswer => {
+        let ansShort = solAnswer.substring(0, Math.min(18, solAnswer.length));
+        let foundIndex = ansList.findIndex(fullAns => fullAns.substring(0, Math.min(18, fullAns.length)) === ansShort);
+        if(foundIndex >= 0) solution.push(foundIndex);
+        else unmatchedSolutions.push(solAnswer);
+      });
+
+      let hasSolution = solution.length > 0;
+      let hasPartialMatch = unmatchedSolutions.length > 0 && hasSolution;
+      if(!hasSolution) invalidCount++;
+      if(hasPartialMatch) {
+        partialMatchCount++;
+        partialMatchDetails.push({
+          nr,
+          question: String(row[nak['Frage']]).substring(0,50)+'...',
+          totalSolutions: solList.length,
+          foundSolutions: solution.length,
+          unmatchedSolutions
+        });
+      }
+
+      // Datumsfelder robust parsen (Excel-Seriennummern, dd.mm.yyyy, ISO etc.)
+      const createdISO = (nak['Erstellt am'] && row[nak['Erstellt am']]!=null) ? parseToISO(row[nak['Erstellt am']]) : null;
+      const updatedISO = (nak['Zuletzt geändert'] && row[nak['Zuletzt geändert']]!=null) ? parseToISO(row[nak['Zuletzt geändert']]) : null;
+      const lastISO    = (nak['Zuletzt beantwortet'] && row[nak['Zuletzt beantwortet']]!=null) ? parseToISO(row[nak['Zuletzt beantwortet']]) : null;
+
+      // ID aus Datei oder neu
+      const importedId = nak['ID'] && row[nak['ID']] ? String(row[nak['ID']]).trim() : null;
+
+      previewList.push({
+        id: importedId || generateId(),
+        nr,
+        topic: row[nak['Thema']] ? String(row[nak['Thema']]).trim() : '',
+        text:  row[nak['Frage']] ? String(row[nak['Frage']]).trim() : '',
+        answers: ansList,
+        solution,
+        comment: row[nak['Kommentar']] ? String(row[nak['Kommentar']]).trim() : '',
+        progress: parseInt(row[nak['Fortschritt']])||0,
+        difficulty: row[nak['Schwierigkeit']] ? String(row[nak['Schwierigkeit']]).trim() : 'leicht',
+        createdAt: createdISO || new Date().toISOString(),
+        updatedAt: updatedISO || new Date().toISOString(),
+        lastAnswered: lastISO || null,
+        history: [], // kann später aus progress/lastAnswered rekonstruiert werden
+        markMissing: !hasSolution,
+        hasPartialMatch: hasPartialMatch,
+        unmatchedSolutions
+      });
+    }
+    showImportPreview(previewList, invalidCount, partialMatchCount, partialMatchDetails);
+  };
+  reader.readAsBinaryString(f);
+}
+
+function showImportPreview(list, invalidCount, partialMatchCount, partialMatchDetails) {
+  let html = `<div class="scroll-table-container" style="height:40vh;">
+    <table>
+    <thead>
+      <tr><th>LfdNr</th><th>Thema</th><th>Frage</th><th>Antworten</th><th>Lösung(en)</th><th>Kommentar</th><th>Schwierigkeit</th></tr>
+    </thead>
+    <tbody>`;
+  list.forEach(q=>{
+    let rowClass = q.markMissing ? 'class="missing-solution-row"' : (q.hasPartialMatch ? 'class="partial-match-row"' : '');
+    html += `<tr ${rowClass}>
+      <td>${q.nr}</td>
+      <td>${escapeHTML(q.topic)}</td>
+      <td>${escapeHTML(q.text)}</td>
+      <td>${q.answers.map(escapeHTML).join('<br>')}</td>
+      <td>${q.solution.map(ix=>escapeHTML(q.answers[ix]||'')).join('<br>')}</td>
+      <td>${escapeHTML(q.comment)}</td>
+      <td>${escapeHTML(q.difficulty)}</td>
+    </tr>`;
+  });
+  html += `</tbody></table></div><div style="margin-top:16px;">`;
+  if(invalidCount > 0) html += `<div style="font-weight:bold; margin-bottom:12px;">⚠️ ${invalidCount} Fragen enthalten keine Lösung und sind gelb markiert!</div>`;
+  if(partialMatchCount > 0) {
+    html += `<div style="font-weight:bold; margin-bottom:12px;">🔸 ${partialMatchCount} Fragen mit unvollständig erkannten Lösungen (orange markiert):</div>
+      <div style="background:color-mix(in srgb, Field 85%, yellow 15%); padding:12px; border-radius:6px; margin-bottom:12px; font-size:0.9em;">`;
+    partialMatchDetails.forEach(d=>{
+      html += `<div style="margin-bottom:8px;">
+        <strong>Nr. ${d.nr}:</strong> "${escapeHTML(d.question)}"<br>
+        <span style="opacity:0.8;">Erwartet: ${d.totalSolutions} Lösungen, Erkannt: ${d.foundSolutions}</span><br>
+        <span style="opacity:0.7;">Nicht erkannt: ${d.unmatchedSolutions.map(escapeHTML).join(', ')}</span>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+  html += `<div style="font-weight:bold;">📊 Datumsformate wurden normalisiert.</div>
+      <p style="margin-top:12px;">Möchtest Du diese <strong>${list.length}</strong> Fragen übernehmen?</p>
+    </div>`;
+
+  const safeJSON = JSON.stringify(list).replace(/'/g,"&#39;").replace(/"/g,"&quot;");
+  let conflictCount = invalidCount + partialMatchCount;
+  if(conflictCount > 0) {
+    html += `<button type="button" onclick='startConflictCorrections(${safeJSON})'>Konflikte korrigieren (${conflictCount})</button>`;
+  } else {
+    html += `<button type="button" onclick='confirmImport(${safeJSON})'>Alle übernehmen</button>`;
+  }
+  html += `<button type="button" onclick="showImport()">Abbruch</button>`;
+  document.getElementById('import-preview').innerHTML = html;
+}
+
+/* Konflikt-Korrekturen */
+function showConflictCorrectionDialog(conflictList, startIdx, originalImportList) {
+  if(startIdx >= conflictList.length) { confirmImport(JSON.stringify(originalImportList)); return; }
+  let q = conflictList[startIdx];
+  let ansHtml = q.answers.map((ans, i) =>
+    `<div style="margin-bottom:8px; display:flex; align-items:center; gap:8px;">
+      <input type="checkbox" id="confchk-${i}" ${q.solution.includes(i)?'checked':''} style="min-width:18px;">
+      <input type="text" value="${escapeHTML(ans)}" id="confans-${i}" style="flex:1; min-width:200px;">
+    </div>`).join('');
+  let unmatchedHtml = q.unmatchedSolutions && q.unmatchedSolutions.length > 0
+    ? `<div style="margin-bottom:12px; padding:8px; background:color-mix(in srgb, Field 70%, orange 30%); border-radius:4px;">
+        <strong>Nicht zugeordnete Lösungen:</strong><br>${q.unmatchedSolutions.map(escapeHTML).join('<br>')}
+       </div>` : '';
+  let dlgHtml = `<div class="modal-header"><h4 style="margin:0;">Konfliktkorrektur - Frage Nr. ${q.nr} (${startIdx+1}/${conflictList.length})</h4></div>
+    <div style="max-height:70vh; overflow-y:auto;">
+      <div style="margin-bottom:16px;">
+        <strong>Fragetext:</strong><br>
+        <div style="padding:8px; background:color-mix(in srgb, Field 90%, blue 10%); border-radius:4px; margin-top:4px;">${escapeHTML(q.text)}</div>
+      </div>
+      ${unmatchedHtml}
+      <div style="margin-bottom:16px;">
+        <strong>Antworten bearbeiten (Häkchen = richtige Lösung):</strong><br>
+        <div style="margin-top:8px;">${ansHtml}</div>
+        <button type="button" onclick="addConflictAnswer()" style="margin-top:8px; font-size:0.9em;">➕ Antwort hinzufügen</button>
+      </div>
+      <div style="margin-bottom:16px;">
+        <strong>Kommentar:</strong><br>
+        <textarea id="confcomment" style="width:98%; height:60px; resize:vertical; margin-top:4px;">${escapeHTML(q.comment||'')}</textarea>
+      </div>
+      <div style="border-top:1px solid ButtonBorder; padding-top:16px;">
+        <button type="button" onclick="acceptCorrection(${startIdx})">✅ Übernehmen & Weiter</button>
+        <button type="button" onclick="skipCorrection(${startIdx})">⏭️ Überspringen & Weiter</button>
+        <button type="button" onclick="cancelConflictCorrection()">❌ Abbrechen</button>
+      </div>
+    </div>`;
+  document.getElementById('preview-content').innerHTML = dlgHtml;
+  document.getElementById('preview-modal').style.display = 'flex';
+  window._conflictList = conflictList;
+  window._originalImportList = originalImportList;
+  window._conflictIdx = startIdx;
+}
+function addConflictAnswer() {
+  let q = window._conflictList[window._conflictIdx];
+  let newIdx = q.answers.length;
+  q.answers.push('');
+  let container = document.querySelector('#preview-content div:nth-child(3) div');
+  let newDiv = document.createElement('div');
+  newDiv.style.cssText = 'margin-bottom:8px; display:flex; align-items:center; gap:8px;';
+  newDiv.innerHTML = `<input type="checkbox" id="confchk-${newIdx}" style="min-width:18px;">
+    <input type="text" value="" id="confans-${newIdx}" style="flex:1; min-width:200px;" placeholder="Neue Antwort eingeben">`;
+  container.appendChild(newDiv);
+}
+async function acceptCorrection(idx) {
+  let q = window._conflictList[idx];
+  let newAns = [], newSol = [];
+  let i = 0;
+  while(document.getElementById('confans-'+i)) {
+    let txt = document.getElementById('confans-'+i).value.trim();
+    if(txt.length>0){ newAns.push(txt); if(document.getElementById('confchk-'+i).checked) newSol.push(newAns.length-1); }
+    i++;
+  }
+  if(newSol.length === 0) { await alert('⚠️ Mindestens eine Antwort muss als Lösung markiert werden!'); return; }
+  q.answers = newAns; q.solution = newSol; q.comment = document.getElementById('confcomment').value.trim();
+  q.markMissing = false; q.hasPartialMatch = false;
+  let idxOrig = window._originalImportList.findIndex(qq => qq.nr === q.nr);
+  if(idxOrig >= 0) window._originalImportList[idxOrig] = q;
+  document.getElementById('preview-modal').style.display = 'none';
+  showConflictCorrectionDialog(window._conflictList, idx + 1, window._originalImportList);
+}
+function skipCorrection(idx){
+  document.getElementById('preview-modal').style.display = 'none';
+  showConflictCorrectionDialog(window._conflictList, idx + 1, window._originalImportList);
+}
+function cancelConflictCorrection(){ document.getElementById('preview-modal').style.display = 'none'; showImport(); }
+function startConflictCorrections(importListStr) {
+  let importList = typeof importListStr === 'string' ? JSON.parse(importListStr.replace(/&quot;/g,'"').replace(/&#39;/g,"'")) : importListStr;
+  let conflicts = importList.filter(q => q.markMissing || q.hasPartialMatch);
+  if(conflicts.length === 0) { confirmImport(JSON.stringify(importList)); return; }
+  showConflictCorrectionDialog(conflicts, 0, importList);
+}
+async function confirmImport(strList) {
+  // 1) Liste parsen
+  let list = typeof strList === 'string'
+    ? JSON.parse(strList.replace(/&quot;/g,'"').replace(/&#39;/g,"'"))
+    : strList;
+
+  loadQuestions();
+
+  const byId = new Map(questions.map(q => [q.id, q]));
+  const existingNrs = new Set(questions.map(q => parseInt(q.nr)||0));
+
+  // 2) Vorab prüfen, wie viele IDs schon existieren (für Bestätigung)
+  const collisions = (list || []).filter(q => q && q.id && byId.has(q.id));
+  let doUpdate = true;
+
+  if (collisions.length > 0) {
+    // kleine Vorschau (max. 8 Einträge)
+    const sample = collisions.slice(0, 8).map(q =>
+      `• ${q.nr ?? '-'} | ${q.topic ?? ''} | ${(q.text || '').slice(0, 60)}`
+    ).join('\n');
+
+    const msg =
+`Es wurden ${collisions.length} Fragen mit bereits vorhandener ID gefunden.
+
+${sample}${collisions.length > 8 ? '\n…' : ''}
+
+Möchtest du diese vorhandenen Fragen AKTUALISIEREN?
+
+OK = aktualisieren
+Abbrechen = vorhandene überspringen (nur neue importieren)`;
+
+    doUpdate = await confirm(msg);
+  }
+
+  // 3) Import durchführen
+  let inserted = 0, updated = 0, skippedUpdates = 0;
+
+  for (const imp of list) {
+    const q = { ...imp };
+
+    // ID & History absichern
+    if (!q.id) q.id = generateId();
+    if (!Array.isArray(q.history)) q.history = [];
+
+    if (byId.has(q.id)) {
+      // ——— Update-Fall ———
+      if (!doUpdate) { skippedUpdates++; continue; }
+
+      const idx = questions.findIndex(x => x.id === q.id);
+      if (idx >= 0) {
+        const existing = questions[idx];
+
+        // Lfd.-Nr. beim Update NICHT ändern
+        const preservedNr = existing.nr;
+
+        // Fortschritt/History standardmäßig behalten (Import überschreibt Inhalte, aber nicht den Lernstand)
+        const merged = {
+          ...existing,
+          // Inhaltliche Felder aus dem Import:
+          topic: (q.topic ?? existing.topic) || '',
+          text: (q.text ?? existing.text) || '',
+          answers: (Array.isArray(q.answers) && q.answers.length ? q.answers : existing.answers) || [],
+          solution: (Array.isArray(q.solution) && q.solution.length ? q.solution : existing.solution) || [],
+          comment: (q.comment !== undefined ? q.comment : existing.comment) || '',
+          difficulty: (q.difficulty || existing.difficulty || 'leicht'),
+
+          // Lernstand & Historie beibehalten
+          progress: (typeof existing.progress === 'number' ? existing.progress : 0),
+          lastAnswered: existing.lastAnswered || null,
+          history: Array.isArray(existing.history) ? existing.history : [],
+
+          // Nummer & IDs festhalten
+          id: existing.id,
+          nr: preservedNr,
+
+          // Timestamps
+          createdAt: existing.createdAt || q.createdAt || new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+
+        questions[idx] = merged;
+        updated++;
+      }
+    } else {
+      // ——— Neu-Fall ———
+      // Lfd.-Nr. eindeutig vergeben
+      let nr = parseInt(q.nr) || 1;
+      while (existingNrs.has(nr)) nr++;
+      existingNrs.add(nr);
+      q.nr = nr;
+
+      // neue Frage übernehmen
+      questions.push({
+        id: q.id,
+        nr: q.nr,
+        topic: q.topic || '',
+        text: q.text || '',
+        answers: Array.isArray(q.answers) ? q.answers : [],
+        solution: Array.isArray(q.solution) ? q.solution : [],
+        comment: q.comment || '',
+        difficulty: q.difficulty || 'leicht',
+        progress: parseInt(q.progress) || 0,
+        lastAnswered: q.lastAnswered || null,
+        history: Array.isArray(q.history) ? q.history : [],
+        createdAt: q.createdAt || new Date().toISOString(),
+        updatedAt: q.updatedAt || new Date().toISOString(),
+      });
+      inserted++;
+    }
+  }
+
+  saveQuestions();
+  showEditor();
+
+  await alert(
+    `✅ Import abgeschlossen.\n` +
+    `Neu: ${inserted}\n` +
+    `Aktualisiert: ${updated}\n` +
+    (skippedUpdates ? `Übersprungen (wegen Abbrechen): ${skippedUpdates}\n` : ``)
+  );
+}
+
+
+/* ===== Quiz ===== */
+function showQuizInit() {
+  loadQuestions();
+  let topics = [...new Set(questions.map(q=>q.topic).filter(Boolean))];
+  let html = `<h3>Quiz starten</h3>
+    <div class="quiz-top">
+      <label>Thema: 
+        <select id="qtopic">
+          <option value="">Alle</option>
+          ${topics.map(t=>`<option>${escapeHTML(t)}</option>`).join('')}
+        </select>
+      </label>
+      <label>Schwierigkeit: 
+        <select id="qdifficulty">
+          <option value="">Alle</option>
+          <option value="leicht">leicht</option>
+          <option value="schwer">schwer</option>
+        </select>
+      </label>
+      <label>Anzahl: 
+        <select id="qcount">
+          <option value="10">10</option>
+          <option value="20">20</option>
+          <option value="30">30</option>
+          <option value="40">40</option>
+          <option value="60">60</option>
+          <option value="all" selected>Alle</option>
+        </select>
+      </label>
+    </div>
+    <!-- Suchleiste für Quiz -->
+    <div class="quiz-searchbar" style="display:flex; gap:8px; align-items:center; margin:12px 0;">
+      <input id="quiz-search" type="text" placeholder="Fragen suchen …" style="flex:1; min-width:200px;" value="${escapeHTML(quizSearch.text || '')}">
+      <button type="button" id="quiz-search-clear" title="Suche löschen">✕</button>
+      <span id="quiz-search-count" style="opacity:.75; font-size:.9em;"></span>
+    </div>
+    <button type="button" onclick="startQuiz()">Quiz starten</button>
+    <button type="button" onclick="location.reload()">Zurück zum Dashboard</button>`;
+  document.getElementById('main').innerHTML = html;
+  showOnly('main');
+  // Suchfeld initialisieren und Treffer anzeigen
+  setupQuizSearch();
+}
+
+
+let editContext = 'database'; // „database“ oder „quiz“
+
+async function startQuiz() {
+  const topic = document.getElementById('qtopic').value;
+  const dif   = document.getElementById('qdifficulty').value;
+  const countVal = (document.getElementById('qcount')?.value) || 'all';
+  const limit = countVal === 'all' ? Infinity : parseInt(countVal, 10);
+
+  const search = (quizSearch && quizSearch.text || '').trim().toLowerCase();
+  const filtered = questions.filter(q =>
+    (!topic || q.topic === topic) &&
+    (!dif   || q.difficulty === dif) &&
+    (!search || matchesQuizSearch(q, search))
+  );
+  if (filtered.length < 1) { await alert('Keine Fragen vorhanden für die Auswahl!'); return; }
+
+  const sorted = filtered
+    .map(q => ({
+      q,
+      p: Number(q.progress) || 0,
+      hasLA: !!q.lastAnswered,
+      ts: q.lastAnswered ? new Date(q.lastAnswered).getTime() : Number.POSITIVE_INFINITY,
+      r: Math.random()
+    }))
+    .sort((a, b) =>
+      (a.p - b.p) ||
+      ((a.hasLA ? 1 : 0) - (b.hasLA ? 1 : 0)) ||
+      (a.ts - b.ts) ||
+      (a.r - b.r)
+    )
+    .map(x => x.q);
+
+  // Auswahl auf gewünschte Anzahl begrenzen (oder alles)
+  quizList = (limit === Infinity) ? sorted : sorted.slice(0, Math.min(sorted.length, limit));
+  quizIdx = 0;
+  quizProg = 0;
+
+  showOnly('quiz-card');
+  showQuizCard();
+}
+
+
+function showQuizCard() {
+  if (quizIdx >= quizList.length) { endQuiz(); return; }
+  if (!quizList || !Array.isArray(quizList) || quizList.length === 0) {
+    console.error('quizList ist nicht verfügbar');
+    alert('Fehler: Quiz-Liste nicht geladen. Bitte starten Sie das Quiz neu.');
+    hideAll(); return;
+  }
+
+  current = quizList[quizIdx];
+  if (!current || !current.answers || !Array.isArray(current.answers)) {
+    console.error('Aktuelle Frage ist ungültig:', current);
+    alert('Fehler: Frage konnte nicht geladen werden. Bitte starten Sie das Quiz neu.');
+    hideAll(); return;
+  }
+
+  quizAnsOrder = Array.from(current.answers.keys()).sort(() => Math.random() - 0.5);
+
+  const q = current, num = quizIdx + 1;
+  let html = `<div style="font-size:1.2em; margin-bottom:8px; white-space:nowrap;">
+    <strong>Lfd. Nr:</strong> ${escapeHTML(q.nr || '-')} |
+    <strong>Thema:</strong> ${escapeHTML(q.topic || '-')} |
+    <strong>Schwierigkeit:</strong> ${escapeHTML(q.difficulty || '-')} |
+    <strong>Frage</strong> ${num}/${quizList.length}
+  </div>
+  <h4 style="font-size: 1.2em;">${renderHTML(q.text)}</h4>
+  <div id="qform">`;
+  quizAnsOrder.forEach(key => {
+    html += `<label class="answer">
+      <input type="checkbox" name="ans" value="${key}"> <span class="anshtml">${renderHTML(q.answers[key])}</span>
+      </label>`;
+  });
+  html += `</div>
+    <button type="button" id="check-btn" onclick="checkQuizAnswer()">Prüfen</button>
+    <button type="button" onclick="previousQuizQuestion()" ${quizIdx === 0 ? 'disabled' : ''}>← Vorherige Frage</button>
+    <button type="button" onclick="nextQuizQuestion()">Nächste Frage →</button>
+    <button type="button" onclick="editCurrentQuestion()">✏️ Bearbeiten</button>
+    <button type="button" onclick="endQuiz()">Abbruch</button>
+    <div id="result"></div>`;
+
+  document.getElementById('quiz-card').innerHTML = html;
+  document.getElementById('progress').textContent = `Fortschritt: ${quizProg}/${quizList.length}`;
+
+  // Prüfen-Status resetten
+  quizCheckedOnce = false;
+  const checkBtn = document.getElementById('check-btn');
+  if (checkBtn) checkBtn.disabled = false;
+}
+
+function previousQuizQuestion(){ if (quizIdx > 0) { quizIdx--; showQuizCard(); } }
+function nextQuizQuestion(){ quizIdx++; showQuizCard(); }
+
+function editCurrentQuestion() {
+  if (!current) { alert('Keine Frage geladen.'); return; }
+  editContext = 'quiz';
+  const questionIndex = questions.findIndex(q => q.id === current.id);
+  if (questionIndex === -1) { alert('Frage konnte nicht in der Datenbank gefunden werden.'); return; }
+  showEditDialog(questions[questionIndex], questionIndex);
+}
+function editQuestionFromDatabase(idx) { editContext = 'database'; showEditDialog(questions[idx], idx); }
+
+async function saveEdit(idx) {
+  const qid = document.getElementById("qid").value || generateId();
+  const nr = parseInt(document.getElementById("nr").value) || nextNr();
+  const topic = document.getElementById("topic").value.trim();
+  const text = sanitizeHTML(document.getElementById("qtext").innerHTML);
+  const comment = sanitizeHTML(document.getElementById("qcomment").innerHTML);
+  // Bestimme den Schwierigkeitswert aus dem Bearbeitungsdialog. Wenn das Element
+  // mit der eindeutigen ID (#ed-qdifficulty) vorhanden ist, verwende dieses.
+  // Fallback: Falls das alte #qdifficulty verwendet wird, dessen Wert nutzen
+  // (nur für Abwärtskompatibilität).
+  let difficulty = '';
+  const diffSelect = document.getElementById("ed-qdifficulty");
+  if (diffSelect) difficulty = diffSelect.value;
+  else {
+    const oldSelect = document.getElementById("qdifficulty");
+    if (oldSelect) difficulty = oldSelect.value;
+  }
+  const progress = parseInt(document.getElementById("qprogress").value) || 0;
+
+  let answers = [], solution = [];
+  document.querySelectorAll("#answers .answer").forEach((el)=>{
+    const box = el.querySelector('.anstxt');
+    const chk = el.querySelector('.chk');
+    const html = sanitizeHTML(box.innerHTML).trim();
+    if (stripHTML(html).length > 0) {
+      const newIndex = answers.push(html) - 1;
+      if (chk.checked) solution.push(newIndex);
+    }
+  });
+
+  if (stripHTML(text).length === 0 || answers.length < 2) { await alert("Bitte Frage und mindestens 2 Auswahlantworten ausfüllen."); return; }
+  if (solution.length < 1) { await alert("Mindestens eine Antwort muss als Lösung markiert werden!"); return; }
+
+  let createdAt    = (idx >= 0 && questions[idx]) ? questions[idx].createdAt : new Date().toISOString();
+  let lastAnswered = (idx >= 0 && questions[idx]) ? questions[idx].lastAnswered : null;
+  let history      = (idx >= 0 && Array.isArray(questions[idx].history)) ? questions[idx].history : [];
+
+  const q = { id: qid, nr, topic, text, answers, solution, comment, difficulty, progress,
+              createdAt, updatedAt: new Date().toISOString(), lastAnswered, history };
+
+  if (idx >= 0) questions[idx] = q; else questions.push(q);
+
+  saveEditorScroll(qid); // Position im Editor merken
+  saveQuestions();
+  closeModal();
+
+  if (editContext === 'quiz') {
+    const i = quizList.findIndex(x => x.id === q.id);
+    if (i >= 0) quizList[i] = q;
+    current = q;
+    showQuizCard();
+  } else {
+    showEditor();
+  }
+}
+
+
+/* Prüfen */
+function checkQuizAnswer() {
+  if (quizCheckedOnce) return;
+  quizCheckedOnce = true;
+  const checkBtnEl = document.getElementById('check-btn');
+  if (checkBtnEl) { checkBtnEl.disabled = true; checkBtnEl.setAttribute('aria-disabled','true'); }
+
+  if (!current) { console.error('current ist null'); alert('Fehler: Quiz nicht richtig geladen.'); return; }
+
+  let q = questions.find(qq => qq.id === current.id) || current;
+
+  let sel = Array.from(document.querySelectorAll('input[name=ans]:checked')).map(inp => parseInt(inp.value));
+  let solution = q.solution || [];
+  let isCorrect = JSON.stringify(sel.slice().sort()) === JSON.stringify(solution.slice().sort());
+
+  let mainResult = isCorrect ? '<strong class="correct">✅ Richtig!</strong>' : '<strong class="wrong">❌ Falsch!</strong>';
+
+  if (isCorrect) {
+    q.progress = (q.progress || 0) + 1;
+    quizProg++;
+    // Lern-History Ereignis hinzufügen
+    if (!Array.isArray(q.history)) q.history = [];
+    q.history.push({ ts: new Date().toISOString(), delta: 1 });
+  }
+  q.lastAnswered = new Date().toISOString();
+  // in DB zurückschreiben
+  const qi = questions.findIndex(qq => qq.id === q.id);
+  if (qi >= 0) questions[qi] = q;
+  saveQuestions();
+
+  // Anzeige der Lösung
+  let solutionHtml = `
+    <div style="display: flex; align-items: center; gap: 18px; margin-bottom: 12px;">
+      <span style="font-size: 1.1em; font-weight: bold; color: color-mix(in srgb, CanvasText 30%, blue 70%);">📋 Auflösung:</span>
+      <span>${mainResult}</span>
+    </div>`;
+
+  let answersHtml = "";
+  quizAnsOrder.forEach((key) => {
+    let idx = parseInt(key);
+    let isCorrectAnswer = solution.includes(idx);
+    let wasSelected = sel.includes(idx);
+    let displayText = '';
+    let styleClass = '';
+  if (isCorrectAnswer && wasSelected) {
+    displayText = `✅ ${renderHTML(q.answers[idx])} <em style="opacity: 0.8;">(richtig gewählt)</em>`;
+    styleClass = 'correct';
+  } else if (isCorrectAnswer && !wasSelected) {
+    displayText = `✓ ${renderHTML(q.answers[idx])} <em style="opacity: 0.8;">(richtige Lösung, nicht gewählt)</em>`;
+    styleClass = 'correct';
+  } else if (!isCorrectAnswer && wasSelected) {
+    displayText = `❌ ${renderHTML(q.answers[idx])} <em style="opacity: 0.8;">(falsch gewählt)</em>`;
+    styleClass = 'wrong';
+  } else {
+  return;
+}
+
+    answersHtml += `<div style="margin: 8px 0; padding: 8px 12px; border-radius: 6px; border-left: 3px solid; background: color-mix(in srgb, Field 80%, ${styleClass === 'correct' ? 'green' : 'red'} 20%); border-left-color: color-mix(in srgb, CanvasText 30%, ${styleClass === 'correct' ? 'green' : 'red'} 70%); color: color-mix(in srgb, CanvasText 20%, ${styleClass === 'correct' ? 'green' : 'red'} 80%);">${displayText}</div>`;
+  });
+
+  const rawComment = q.comment || "";
+  const hasContent = stripHTML(rawComment).trim().length > 0;
+  const looksLikeHtml = /<\s*\w+/i.test(rawComment);
+  
+  let normalized = looksLikeHtml ? rawComment : rawComment.replace(/\n/g, '<br>');
+  const commentHtml = `
+    <div style="margin-top: 16px; padding: 12px; border-radius: 8px; border: 1px solid;">
+    <div style="font-size: 1.1em; font-weight: bold; margin-bottom: 12px; color: color-mix(in srgb, CanvasText 30%, blue 70%);">Kommentar:</div>
+    <div class="comment-body" style="margin-top: 12px; color: #444;">
+      ${hasContent ? renderHTML(normalized) : '<em>Kein Kommentar vorhanden.</em>'}
+    </div>
+  </div>`;
+
+
+
+  let result = `<div style="margin-top: 16px; padding: 12px; border-radius: 8px; border: 1px solid;">${solutionHtml}${answersHtml}</div>${commentHtml}`;
+  const resultEl = document.getElementById('result');
+  if (resultEl) resultEl.innerHTML = result;
+  const progEl = document.getElementById('progress');
+  if (progEl) progEl.textContent = `Fortschritt: ${quizProg}/${quizList.length}`;
+}
+
+function endQuiz() {
+  showOnly('main');
+  document.getElementById('main').innerHTML = `<h2>Das Quiz ist beendet.</h2>
+    <p>Dein Fortschritt: <strong>${quizProg}/${quizList.length}</strong></p>
+    <button type="button" onclick="location.reload()">Zurück zum Dashboard</button>`;
+}
+
+/* ===== Reset / Init ===== */
+async function resetCache() {
+  if (await confirm("Quiz-Einstellungen zurücksetzen?\n\n✅ Betrifft nur das Quiz\n✅ Fragen bleiben erhalten\n✅ Andere Websites unberührt")) {
+    localStorage.removeItem('quiz_settings');
+    await alert("✅ Quiz-Einstellungen wurden zurückgesetzt!");
+    location.reload();
+  }
+}
+async function resetAllData() {
+  if (await confirm("⚠️ Alle Quiz-Daten löschen?\n\n• Quiz-Fragen\n• Quiz-Einstellungen\n• Quiz-Fortschritt\n\n✅ Betrifft nur das Quiz\n✅ Andere Websites unberührt")) {
+    if (await confirm("🔴 LETZTE WARNUNG: Alle Quiz-Daten werden gelöscht!\n\nFortfahren?")) {
+      localStorage.removeItem('quizdb_v2');
+      localStorage.removeItem('quiz_settings');
+      await alert("✅ Quiz-Daten wurden gelöscht!");
+      location.reload();
+    }
+  }
+}
+
+/* Init */
+function initializeDashboard(){ loadDashboardSettings(); updateDashboard(); }
+// Initialisiere das Dashboard und lege die Floating‑Toolbox (RTE) genau einmal an.
+// Wir verbinden beide vormals separaten DOMContentLoaded‑Handler in einem einzigen,
+// damit `initFloatingRte()` garantiert ausgeführt wird und keine mehrfachen
+// Initialisierungen passieren. Siehe MDN zur DOMContentLoaded‑Event.
+document.addEventListener('DOMContentLoaded', () => {
+  // Dashboard laden (Fragen, Statistik, etc.)
+  initializeDashboard();
+  // Toolbox anlegen: erst beim ersten Fokus wird sie sichtbar, aber sie muss
+  // im DOM vorhanden sein, damit showRte() sie finden kann.
+  initFloatingRte();
+});
+</script>
+<!-- Register the service worker to enable offline caching and PWA behaviour -->
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function() {
+    navigator.serviceWorker.register('service-worker.js');
+  });
+}
+</script>
+</body>
+</html>
