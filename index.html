@@ -401,6 +401,74 @@
     /* chart line colours are set via JS, so we leave Chart.js config unchanged here */
     /* =================== End Dark Mode Customisation =================== */
 
+    /* ------------------- Customisations for user requests ------------------- */
+    /* Make input groups in the settings panel look like equally sized tiles */
+    .settings-panel .input-group {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      min-height: 100px;
+    }
+    .settings-panel .input-group label {
+      margin-bottom: 4px;
+      color: var(--text);
+    }
+    .settings-panel .input-group input,
+    .settings-panel .input-group select,
+    .settings-panel .input-group button {
+      width: 100%;
+    }
+
+    /* Darken the labels of the statistic tiles on the dashboard */
+    .stat-label {
+      color: var(--text);
+      opacity: 0.6;
+    }
+
+    /* Darker background for theme progress cards and lighter text within */
+    .theme-progress {
+      background: var(--surface);
+      border-color: var(--border);
+    }
+    .theme-name {
+      color: var(--text);
+    }
+    .theme-stats {
+      color: var(--text-muted);
+      opacity: 0.8;
+    }
+
+    /* Improve mobile layout: utilise full height and scale statistic tiles */
+    @media (max-width: 768px) {
+      html, body {
+        min-height: 100vh;
+      }
+      .stat-item {
+        min-height: 80px;
+      }
+    }
+
+    /* Style for the RTE toggle button on mobile. It appears next to editable
+       fields and allows users to manually open the rich text toolbox. */
+    .rte-toggle-btn {
+      margin-top: 4px;
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 4px 6px;
+      font-size: 1.1em;
+      cursor: pointer;
+    }
+    .rte-toggle-btn:hover {
+      background: var(--accent);
+      color: var(--bg);
+    }
+
     /*
       Custom button styles for the dashboard and editor.
       These classes augment the generic button styling defined earlier to
@@ -1104,7 +1172,6 @@ function updatePlanningView(settings) {
       <div class="stat-item"><div class="stat-value">${learnedQuestions}</div><div class="stat-label">Questions learned</div></div>
       <div class="stat-item"><div class="stat-value">${answeredToday}</div><div class="stat-label">Answered today</div></div>
       <div class="stat-item"><div class="stat-value">${daysRemaining}</div><div class="stat-label">Days remaining</div></div>
-      <div class="stat-item"><div class="stat-value">${Math.round(plannedProgress)}%</div><div class="stat-label">Planned progress</div></div>
     </div>
     <div style="margin:16px 0;">
       <div>Learning progress with all repetitions vs. planned</div>
@@ -1732,17 +1799,47 @@ function bindEditable(el){
   el.setAttribute('contenteditable','true');
   el.classList.add('richbox');
 
-  // Beim ersten Fokussieren das RTE initialisieren und anzeigen.
-  // Ursprünglich wurde nur das focus‑Ereignis verwendet. In der Praxis
-  // kann der focus bei verschachtelten contenteditable‑Elementen
-  // (z. B. beim Klicken in ein bereits editierbares Feld) nicht mehr
-  // ausgelöst werden. Deshalb ergänzen wir auch einen click‑Listener.
-  el.addEventListener('focus', ()=>{ initFloatingRte(); showRte(el); });
-
-  // Auf jeden Mausklick innerhalb des Elements ebenfalls RTE einblenden.
-  // So wird die Toolbox zuverlässig angezeigt, auch wenn der native
-  // focus nur auf ein Kind‑Element springt.
-  el.addEventListener('click', ()=>{ initFloatingRte(); showRte(el); });
+  // === Responsive RTE behaviour ===
+  // On larger screens (>768px) we keep the original behaviour: focusing or clicking
+  // inside the editable area automatically shows the floating RTE. On small screens
+  // (mobile view) the RTE can be summoned via a toggle button to save screen
+  // real estate. We set up the toggle only once per editable element.
+  if (window.innerWidth > 768) {
+    // Beim ersten Fokussieren das RTE initialisieren und anzeigen.
+    // Ursprünglich wurde nur das focus‑Ereignis verwendet. In der Praxis
+    // kann der focus bei verschachtelten contenteditable‑Elementen
+    // (z. B. beim Klicken in ein bereits editierbares Feld) nicht mehr
+    // ausgelöst werden. Deshalb ergänzen wir auch einen click‑Listener.
+    el.addEventListener('focus', ()=>{ initFloatingRte(); showRte(el); });
+    // Auf jeden Mausklick innerhalb des Elements ebenfalls RTE einblenden.
+    // So wird die Toolbox zuverlässig angezeigt, auch wenn der native
+    // focus nur auf ein Kind‑Element springt.
+    el.addEventListener('click', ()=>{ initFloatingRte(); showRte(el); });
+  } else {
+    // On mobile, avoid auto‑popups. Instead, create a small toggle button
+    // adjacent to the editable area to open the RTE on demand.
+    if (!el.dataset.rteToggleAdded) {
+      const toggleBtn = document.createElement('button');
+      toggleBtn.type = 'button';
+      toggleBtn.className = 'rte-toggle-btn';
+      toggleBtn.title = 'Show toolbox';
+      toggleBtn.textContent = '🛠️';
+      toggleBtn.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        initFloatingRte();
+        showRte(el);
+      });
+      // Insert the toggle after the editable element
+      el.parentNode.insertBefore(toggleBtn, el.nextSibling);
+      // Flag so we don't add multiple toggles
+      el.dataset.rteToggleAdded = 'true';
+    }
+    // On mobile, clicking inside the editable area should not auto‑show the RTE,
+    // but we still track selection so that toolbar commands work correctly when
+    // the RTE is manually opened.
+    el.addEventListener('click', () => { _activeEditable = el; saveSelection(); });
+    el.addEventListener('focus', () => { _activeEditable = el; saveSelection(); });
+  }
 
   el.addEventListener('blur', ()=>{
     setTimeout(()=>{
@@ -2638,6 +2735,75 @@ function nameArrayKeys(headerArr){
   return out;
 }
 
+/**
+ * Filter imported questions against the existing database.
+ * Running numbers are intentionally ignored because they may differ between imports.
+ * A question is considered a duplicate if its text (ignoring HTML) and its answer set
+ * and comment match an existing question in the local database.
+ * Returns an object with the filtered list and the number of duplicates detected.
+ */
+function filterExistingQuestions(list) {
+  loadQuestions();
+  let duplicateCount = 0;
+  const filteredList = [];
+  list.forEach(item => {
+    const isDuplicate = questions.some(q => {
+      // compare text without HTML and trimmed/lowercased
+      const txtA = (q.text || '').replace(/<[^>]+>/g, '').trim().toLowerCase();
+      const txtB = (item.text || '').replace(/<[^>]+>/g, '').trim().toLowerCase();
+      if (txtA !== txtB) return false;
+      // compare answers ignoring order, HTML and case
+      const ansA = (q.answers || []).map(a => stripHTML(a).trim().toLowerCase()).sort();
+      const ansB = (item.answers || []).map(a => stripHTML(a).trim().toLowerCase()).sort();
+      const commentA = stripHTML(q.comment || '').trim().toLowerCase();
+      const commentB = stripHTML(item.comment || '').trim().toLowerCase();
+      return JSON.stringify(ansA) === JSON.stringify(ansB) && commentA === commentB;
+    });
+    if (isDuplicate) {
+      duplicateCount++;
+    } else {
+      filteredList.push(item);
+    }
+  });
+  return { filteredList, duplicateCount };
+}
+
+// Import only the questions selected by the user in the preview table. The full import list
+// is passed as a serialized JSON string via the onclick handler in showImportPreview().
+// This function collects all checked rows (based on the `data-index` attribute on the
+// checkbox inputs) and constructs a new list containing only those entries. It then
+// invokes the existing confirmImport() function with the selected subset. If the user
+// has not selected any items, a simple alert informs them that at least one question
+// must be chosen before proceeding.
+function confirmImportSelected(listStr) {
+  try {
+    // If listStr is already an array (because the JSON was inlined in the onclick),
+    // we use it directly. Otherwise attempt to parse a JSON string.
+    let importList;
+    if (Array.isArray(listStr)) {
+      importList = listStr;
+    } else {
+      importList = JSON.parse(listStr);
+    }
+    const checkboxes = document.querySelectorAll('.import-select');
+    const selected = [];
+    checkboxes.forEach(cb => {
+      if (cb.checked) {
+        const idx = parseInt(cb.dataset.index, 10);
+        if (!isNaN(idx)) selected.push(importList[idx]);
+      }
+    });
+    if (selected.length === 0) {
+      alert('Please select at least one question to import.');
+      return;
+    }
+    confirmImport(JSON.stringify(selected));
+  } catch(err) {
+    console.error('Error during selected import:', err);
+    alert('An unexpected error occurred while importing selected questions.');
+  }
+}
+
 function handleImport(e) {
   let f = e.target.files[0];
   if (!f) return;
@@ -2744,7 +2910,9 @@ function handleImport(e) {
         unmatchedSolutions
       });
     }
-    showImportPreview(previewList, invalidCount, partialMatchCount, partialMatchDetails);
+    // Filter out questions that already exist in the current database.
+    const { filteredList, duplicateCount } = filterExistingQuestions(previewList);
+    showImportPreview(filteredList, invalidCount, partialMatchCount, partialMatchDetails, duplicateCount);
   };
   reader.readAsBinaryString(f);
 }
@@ -2796,23 +2964,27 @@ function handleJsonImport(data) {
     });
     // Für JSON‑Import haben wir keine partiell erkannten Lösungen, daher
     // wird partialMatchCount auf 0 gesetzt.
-    showImportPreview(previewList, invalidCount, 0, []);
+    // Filter out questions that already exist in the current database.
+    const { filteredList, duplicateCount } = filterExistingQuestions(previewList);
+    // No partial matches for JSON import, pass 0 and empty array.
+    showImportPreview(filteredList, invalidCount, 0, [], duplicateCount);
   } catch(err) {
     console.error(err);
     alert('Error processing the JSON data.');
   }
 }
 
-function showImportPreview(list, invalidCount, partialMatchCount, partialMatchDetails) {
+function showImportPreview(list, invalidCount, partialMatchCount, partialMatchDetails, duplicateCount = 0) {
   let html = `<div class="scroll-table-container" style="height:40vh;">
     <table>
     <thead>
-      <tr><th>No.</th><th>Topic</th><th>Question</th><th>Answers</th><th>Correct answer(s)</th><th>Comment</th><th>Difficulty</th></tr>
+      <tr><th>Select</th><th>No.</th><th>Topic</th><th>Question</th><th>Answers</th><th>Correct answer(s)</th><th>Comment</th><th>Difficulty</th></tr>
     </thead>
     <tbody>`;
-  list.forEach(q=>{
+  list.forEach((q, idx) => {
     let rowClass = q.markMissing ? 'class="missing-solution-row"' : (q.hasPartialMatch ? 'class="partial-match-row"' : '');
     html += `<tr ${rowClass}>
+      <td><input type="checkbox" class="import-select" data-index="${idx}" checked></td>
       <td>${q.nr}</td>
       <td>${escapeHTML(q.topic)}</td>
       <td>${escapeHTML(q.text)}</td>
@@ -2836,8 +3008,13 @@ function showImportPreview(list, invalidCount, partialMatchCount, partialMatchDe
     });
     html += `</div>`;
   }
+  // Inform about duplicates and new question count
+  if (duplicateCount > 0) {
+    html += `<div style="font-weight:bold; margin-bottom:12px;">🔁 ${duplicateCount} existing question(s) were ignored and will not be imported.</div>`;
+  }
+  html += `<div style="font-weight:bold; margin-bottom:12px;">${list.length} new question(s) detected. Select the ones you want to import below.</div>`;
   html += `<div style="font-weight:bold;">📊 Date formats have been normalized.</div>
-      <p style="margin-top:12px;">Would you like to import these <strong>${list.length}</strong> questions?</p>
+      <p style="margin-top:12px;">Would you like to import the selected questions?</p>
     </div>`;
 
   const safeJSON = JSON.stringify(list).replace(/'/g,"&#39;").replace(/"/g,"&quot;");
@@ -2845,7 +3022,7 @@ function showImportPreview(list, invalidCount, partialMatchCount, partialMatchDe
   if(conflictCount > 0) {
     html += `<button type="button" onclick='startConflictCorrections(${safeJSON})'>Resolve conflicts (${conflictCount})</button>`;
   } else {
-    html += `<button type="button" onclick='confirmImport(${safeJSON})'>Import all</button>`;
+    html += `<button type="button" onclick='confirmImportSelected(${safeJSON})'>Import selected</button>`;
   }
   html += `<button type="button" onclick="showImport()">Cancel</button>`;
   document.getElementById('import-preview').innerHTML = html;
