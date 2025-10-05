@@ -3,16 +3,6 @@
 <head>
   <meta charset="UTF-8">
   <title>Interaktives Quiz</title>
-  <!-- Progressive Web App meta tags for iOS/Safari and general -->
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#0d0f10">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-title" content="Interaktives Quiz">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <!-- iOS Home Screen icons -->
-  <link rel="apple-touch-icon" sizes="192x192" href="icons/icon-192.png">
-  <link rel="apple-touch-icon" sizes="512x512" href="icons/icon-512.png">
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.umd.min.js"></script>
@@ -83,8 +73,23 @@
     .input-group { display:flex; flex-direction:column; gap:4px; }
     .input-group label{ font-weight:500; font-size:0.9em; }
 
-    .delete-all-btn { background: var(--danger); color: var(--bg); border: 1px solid var(--danger); color: color-mix(in srgb, ButtonText 80%, red 20%); }
-    .delete-all-btn:hover{ background: color-mix(in srgb, ButtonFace 60%, red 40%); }
+    /*
+      Override the default "delete-all" button styling. This button is used
+      for destructive actions like removing all questions. In the dark
+      interface it has a neutral (nearly black) background by default and
+      only turns red when hovered to draw the user's attention to the
+      danger of the action.
+    */
+    .delete-all-btn {
+      background: #000;
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .delete-all-btn:hover {
+      background: var(--danger);
+      color: var(--bg);
+      border-color: var(--danger);
+    }
 
     #add-ans-btn, .delete-ans-btn { font-size:1.2em; border:none; background:none; color: color-mix(in srgb, CanvasText 70%, blue 30%); cursor:pointer; padding:4px; }
     #add-ans-btn:hover, .delete-ans-btn:hover { color: color-mix(in srgb, CanvasText 50%, red 50%); }
@@ -142,6 +147,8 @@
     #modal-content, #preview-content {
       background: Canvas; border: 2px solid ButtonBorder; border-radius:12px; padding:24px;
       width:min(950px, 90vw); max-height:90vh; overflow:auto; box-shadow:0 8px 32px rgba(0,0,0,0.2); position:relative;
+      /* Editorfenster darf skaliert werden */
+      resize: both;
     }
 
     .native-dialog { position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:Canvas; border:2px solid ButtonBorder; border-radius:8px; padding:20px; min-width:300px; max-width:500px; box-shadow:0 4px 20px rgba(0,0,0,0.3); z-index:10000; color:CanvasText; display:none; }
@@ -180,6 +187,35 @@
     }
     .rte-toolbar{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
     .rte-toolbar button,input[type="color"],select{padding:6px 8px}
+
+    /* Gruppierungen in der schwebenden RTE‑Toolbar.  Durch die Angabe
+       einer 100% Breite wird eine neue Zeile begonnen. Jede Gruppe
+       enthält ihre eigenen Bedienelemente (Farben, Tabellenfunktionen etc.). */
+    .rte-toolbar .rte-group {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-top: 6px;
+      width: 100%;
+    }
+    .rte-toolbar .rte-group .label {
+      font-size: 0.85em;
+      font-weight: 500;
+      margin-right: 4px;
+      opacity: 0.8;
+    }
+
+    /* Der Fortschrittsbereich zeigt links den aktuellen Stand und
+       rechts Dateiname sowie Änderungsdatum. Flexbox sorgt für
+       saubere Aufteilung. */
+    #progress {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 1em;
+      gap: 12px;
+    }
     .richbox{border:1px solid ButtonBorder;border-radius:6px;padding:8px;background:Field;min-height:70px}
     .richbox:focus{outline:2px solid Highlight;outline-offset:1px}
     
@@ -339,6 +375,118 @@
     }
     /* chart line colours are set via JS, so we leave Chart.js config unchanged here */
     /* =================== End Dark Mode Customisation =================== */
+
+    /*
+      Custom button styles for the dashboard and editor.
+      These classes augment the generic button styling defined earlier to
+      provide visual hierarchy (large vs small) and appropriate hover
+      states for critical actions. They rely on a dark base colour by
+      default and transition to accent/warning/danger colours on hover.
+    */
+    .header-big-btn {
+      font-size: 1.1em;
+      padding: 10px 20px;
+      background: #000;
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .header-big-btn:hover {
+      background: var(--accent);
+      color: var(--bg);
+      border-color: var(--accent);
+    }
+    .header-small-reset-btn {
+      font-size: 0.9em;
+      padding: 6px 12px;
+      background: #000;
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .header-small-reset-btn:hover {
+      background: var(--warning);
+      color: var(--bg);
+      border-color: var(--warning);
+    }
+    .header-small-delete-btn {
+      font-size: 0.9em;
+      padding: 6px 12px;
+      background: #000;
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .header-small-delete-btn:hover {
+      background: var(--danger);
+      color: var(--bg);
+      border-color: var(--danger);
+    }
+    .editor-reset-btn {
+      background: #000;
+      color: var(--text);
+      border: 1px solid var(--border);
+      font-size: 0.9em;
+      padding: 6px 12px;
+    }
+    .editor-reset-btn:hover {
+      background: var(--warning);
+      color: var(--bg);
+      border-color: var(--warning);
+    }
+    /* highlight selected table row in the editor */
+    .selected-row td {
+      background: color-mix(in srgb, Field 75%, var(--accent) 25%) !important;
+    }
+
+    /*
+      Modal actions bar: ensures that the Speichern/Abbruch buttons in the
+      Editor remain visible even when the dialog content is scrolled. The bar
+      sticks to the bottom of the scrollable modal and uses the same
+      colouring as the panel. It also adds a top border to visually
+      separate it from the content. The high z-index prevents it from
+      being overlapped by table content inside the editor.
+    */
+    .modal-actions {
+      position: sticky;
+      bottom: 0;
+      background: var(--panel);
+      padding: 8px 0;
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      border-top: 1px solid var(--border);
+      z-index: 10;
+    }
+
+    /*
+      Colour picker for the rich text editor. Each picker displays a row
+      of small coloured squares instead of a select dropdown. Hovering a
+      colour square outlines it with the accent colour. The picker itself
+      uses a flex layout to minimise spacing between items, contributing to
+      a more compact toolbar.
+    */
+    .color-picker {
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+    }
+    .color-picker button {
+      width: 18px;
+      height: 18px;
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      cursor: pointer;
+      padding: 0;
+    }
+    .color-picker button:hover {
+      outline: 2px solid var(--accent);
+      outline-offset: 1px;
+    }
+    /* Reduce spacing in the floating RTE toolbar for a compact look */
+    .rte-float .rte-toolbar {
+      gap: 4px;
+    }
+    .rte-float .rte-toolbar button {
+      padding: 2px 6px;
+    }
 </style>
 <!-- Tabellen-Stile für Richtext-Kommentare und Editor -->
 <style>
@@ -367,10 +515,12 @@
   <div class="dashboard-header">
     <h2>📊 Quiz-Dashboard</h2>
     <div>
-      <button type="button" onclick="showQuizInit()">Quiz starten</button>
-      <button type="button" onclick="showEditor()">Fragen Datenbank</button>
-      <button type="button" onclick="resetCache()" style="background: var(--warning); color: var(--bg); border: 1px solid var(--warning);">🔄 Quiz-Einstellungen zurücksetzen</button>
-      <button type="button" onclick="resetAllData()" style="background: var(--danger); color: var(--bg); border: 1px solid var(--danger);">🗑️ Alle Quiz-Daten löschen</button>
+      <!-- Primary actions on the dashboard are given the "header-big-btn" class for prominence -->
+      <button type="button" onclick="showQuizInit()" class="header-big-btn">Quiz starten</button>
+      <button type="button" onclick="showEditor()" class="header-big-btn">Fragen Datenbank</button>
+      <!-- Secondary actions use smaller buttons with dark backgrounds; their hover states signal caution/danger -->
+      <button type="button" onclick="resetCache()" class="header-small-reset-btn">🔄 Quiz‑Einstellungen zurücksetzen</button>
+      <button type="button" onclick="resetAllData()" class="header-small-delete-btn">🗑️ Alle Quiz‑Daten löschen</button>
     </div>
   </div>
 
@@ -434,10 +584,62 @@ let overallChart = null, planningChart = null;
 let quizCheckedOnce = false; // mehrfaches Prüfen verhindern
 // Editor-Suche (persistiert während der Session)
 let editorSearch = { nr: '', text: '', date: '' };
+// Speichert die zuletzt ausgewählte Zeile in der Fragen-Datenbank. Dieser Wert
+// bestimmt, welche Zeile dauerhaft markiert bleibt, bis der Benutzer eine
+// andere auswählt oder den Editor verlässt.
+let editorSelectedRowId = null;
 // Quiz-Suche (persistiert während der Session)
 // Speichert den Suchtext für das Quiz-Startfenster. Der Wert wird im Suchfeld
 // vorbefüllt und erst durch Klick auf das ✕-Symbol oder ESC gelöscht.
 let quizSearch = { text: '' };
+
+/* ====== Dataset-Info ======
+ *
+ * Um im Fortschrittsbalken zusätzliche Metainformationen zur aktuell
+ * geladenen Fragensammlung anzuzeigen, werden Name, Versionsnummer und
+ * das Datum der letzten Änderung zentral gespeichert. Diese Daten
+ * werden im localStorage unter "quiz_datasetInfo" persistiert und beim
+ * Laden der Seite wiederhergestellt. Beim Import aus einer Datei
+ * aktualisieren wir diese Felder automatisch anhand des Dateinamens
+ * (Versionserkennung über den letzten Unterstrich) und des
+ * Dateizeitstempels. Bei Bedarf kann updateDatasetInfo() manuell
+ * aufgerufen werden, um neue Werte zu setzen.
+ */
+let datasetName = '';
+let datasetVersion = '';
+let datasetLastModified = '';
+
+function loadDatasetInfo() {
+  try {
+    const info = JSON.parse(localStorage.getItem('quiz_datasetInfo') || '{}');
+    datasetName = info.name || '';
+    datasetVersion = info.version || '';
+    datasetLastModified = info.lastModified || '';
+  } catch(e) {
+    datasetName = '';
+    datasetVersion = '';
+    datasetLastModified = '';
+  }
+}
+
+function updateDatasetInfo(name, version, lastModified) {
+  datasetName = name || '';
+  datasetVersion = version || '';
+  datasetLastModified = lastModified || '';
+  localStorage.setItem('quiz_datasetInfo', JSON.stringify({ name: datasetName, version: datasetVersion, lastModified: datasetLastModified }));
+}
+
+// Beim Start die gespeicherten Metadaten laden
+loadDatasetInfo();
+
+// Falls keine Datensatzinformationen vorhanden sind (z.B. bei lokal geöffneter HTML‑Datei),
+// initialisiere sie mit dem aktuellen Dateinamen und dem bekannten Änderungsdatum.  So wird
+// der Dateiname (KI_Quiz_dark_final.html) und das zuletzt geänderte Datum (04.10.2025)
+// immer im Fortschrittsbereich angezeigt.  Sollte später ein anderes Dataset importiert
+// werden, setzt updateDatasetInfo() diese Werte entsprechend.
+if (!datasetName) {
+  updateDatasetInfo('KI_Quiz_dark_final.html', '', '04.10.2025');
+}
 
 
 /* ========= Hilfsfunktionen ========= */
@@ -1134,7 +1336,13 @@ function showOnly(id) {
   document.getElementById('progress').textContent = '';
   if(id === 'main') updateDashboard();
 }
-function hideAll(){ showOnly('main'); }
+function hideAll(){
+  // Beim Verlassen des Editors wird die Auswahl zurückgesetzt. Damit wird
+  // die Zeilenmarkierung nicht fälschlicherweise beim erneuten Öffnen
+  // wiederhergestellt.
+  editorSelectedRowId = null;
+  showOnly('main');
+}
 
 /* Utils */
 
@@ -1314,6 +1522,26 @@ function onRteColorSelect(type, selectEl){
   }
   // zurück auf Platzhalter
   selectEl.selectedIndex = 0;
+}
+
+// Handler für Klicks auf die farbigen Kacheln der Farbpalette. Erhält
+// denselben Command wie der Dropdown (foreColor oder hiliteColor) und
+// setzt die Auswahl direkt ohne Dropdown. Fallbacks für ältere
+// Browser werden ebenfalls berücksichtigt.
+function onRteColorButtonClick(type, color) {
+  if (!color) return;
+  restoreSelection();
+  if (_activeEditable) _activeEditable.focus();
+  try {
+    document.execCommand(type, false, color);
+  } catch (e) {
+    // Manche Browser nutzen backColor statt hiliteColor
+    if (type === 'hiliteColor') {
+      try { document.execCommand('backColor', false, color); } catch {}
+    } else {
+      try { document.execCommand('foreColor', false, color); } catch {}
+    }
+  }
 }
 
 // Wandelt top-level <div> aus contenteditable in <p> um
@@ -1581,6 +1809,68 @@ function insertTable(){
   }
 }
 
+// Bestimmt die aktuell ausgewählte Tabellenzelle innerhalb eines
+// contenteditable Rich‑Text‑Feldes. Kehrt null zurück, wenn kein
+// Tabellenkontext vorliegt.
+function getSelectedTableCell() {
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0) return null;
+  let node = sel.anchorNode;
+  // Bei Textknoten auf die Elternzelle hochlaufen
+  while (node && node.nodeType === 3) node = node.parentNode;
+  while (node && node.tagName && node.tagName.toLowerCase() !== 'td' && node.tagName.toLowerCase() !== 'th') {
+    node = node.parentNode;
+  }
+  return node || null;
+}
+
+// Fügt eine Zeile unterhalb der aktuellen Zeile ein. Ist keine Tabelle
+// ausgewählt, wird eine Fehlermeldung ausgegeben.
+function addTableRow() {
+  const cell = getSelectedTableCell();
+  if (!cell) { alert('Setze den Cursor in eine Tabellenzelle, um eine Zeile hinzuzufügen.'); return; }
+  const row = cell.parentNode;
+  const table = row.parentNode;
+  const newRow = row.cloneNode(true);
+  Array.from(newRow.cells).forEach(c => { c.innerHTML = '&nbsp;'; });
+  row.parentNode.insertBefore(newRow, row.nextSibling);
+}
+
+// Entfernt die aktuelle Zeile, sofern mindestens eine weitere Zeile
+// verbleibt. Bei Einzelzeilen erfolgt keine Aktion.
+function removeTableRow() {
+  const cell = getSelectedTableCell();
+  if (!cell) { alert('Setze den Cursor in eine Tabellenzelle, um eine Zeile zu löschen.'); return; }
+  const row = cell.parentNode;
+  const table = row.parentNode;
+  if (table.rows.length <= 1) return;
+  row.parentNode.removeChild(row);
+}
+
+// Fügt eine Spalte rechts von der aktuellen Spalte ein. Ist keine
+// Tabelle aktiv, erscheint eine Fehlermeldung.
+function addTableColumn() {
+  const cell = getSelectedTableCell();
+  if (!cell) { alert('Setze den Cursor in eine Tabellenzelle, um eine Spalte hinzuzufügen.'); return; }
+  const colIndex = Array.from(cell.parentNode.children).indexOf(cell);
+  const table = cell.closest('table');
+  Array.from(table.rows).forEach(r => {
+    const newCell = r.insertCell(colIndex + 1);
+    newCell.innerHTML = '&nbsp;';
+  });
+}
+
+// Entfernt die aktuelle Spalte, sofern mindestens eine weitere Spalte
+// vorhanden ist.
+function removeTableColumn() {
+  const cell = getSelectedTableCell();
+  if (!cell) { alert('Setze den Cursor in eine Tabellenzelle, um eine Spalte zu löschen.'); return; }
+  const colIndex = Array.from(cell.parentNode.children).indexOf(cell);
+  const table = cell.closest('table');
+  if (!table || table.rows[0].cells.length <= 1) return;
+  Array.from(table.rows).forEach(r => { r.deleteCell(colIndex); });
+}
+
 let _rteState = { pinned: false };
 function saveRteBoxState(){
   const f = document.getElementById('rte-float');
@@ -1617,8 +1907,8 @@ function initFloatingRte(){
       <button type="button" id="rte-close" title="Schließen">✖</button>
     </div>
   </div>
-
   <div class="rte-toolbar">
+    <!-- Erste Zeile: Standardformatierungen -->
     <button type="button" onclick="rteCmd('bold')"><b>B</b></button>
     <button type="button" onclick="rteCmd('italic')"><i>I</i></button>
     <button type="button" onclick="rteCmd('underline')"><u>U</u></button>
@@ -1628,30 +1918,6 @@ function initFloatingRte(){
     <button type="button" onclick="rteCmd('justifyLeft')">⟸</button>
     <button type="button" onclick="rteCmd('justifyCenter')">⇔</button>
     <button type="button" onclick="rteCmd('justifyRight')">⟹</button>
-
-<select id="rte-fg" title="Textfarbe" onchange="onRteColorSelect('foreColor', this)">
-  <option value="">Textfarbe</option>
-  <option value="#000000">Schwarz</option>
-  <option value="#808080">Grau</option>
-  <option value="#ffffff">Weiß</option>
-  <option value="#ff0000">Rot</option>
-  <option value="#0000ff">Blau</option>
-  <option value="#008000">Grün</option>
-  <option value="#ffff00">Gelb</option>
-</select>
-
-<select id="rte-bg" title="Hintergrundfarbe" onchange="onRteColorSelect('hiliteColor', this)">
-  <option value="">Hintergrund</option>
-  <option value="#000000">Schwarz</option>
-  <option value="#808080">Grau</option>
-  <option value="#ffffff">Weiß</option>
-  <option value="#ff0000">Rot</option>
-  <option value="#0000ff">Blau</option>
-  <option value="#008000">Grün</option>
-  <option value="#ffff00">Gelb</option>
-</select>
-
-
 
     <select id="rte-font" title="Schriftart" onchange="onRteFontChange(this.value)">
       <option value="">Schriftart</option>
@@ -1676,12 +1942,47 @@ function initFloatingRte(){
 
     <button type="button" onclick="(function(){let url=prompt('Link-URL:'); if(url){rteCmd('createLink', url);}})()">🔗</button>
     <button type="button" onclick="insertImageFromFile()">🖼️ Bild</button>
-    <button type="button" onclick="insertTable()">📊 Tabelle</button>
+
     <select onchange="insertSymbol(this.value); this.selectedIndex=0;">
       <option>Zeichen…</option><option>±</option><option>→</option><option>←</option>
       <option>≥</option><option>≤</option><option>µ</option><option>Ω</option><option>∞</option>
     </select>
     <button type="button" onclick="rteCmd('removeFormat')">Format entfernen</button>
+
+    <!-- Neue Zeilen für Farben und Tabellenfunktionen -->
+    <div class="rte-group">
+      <span class="label">Textfarbe</span>
+      <div class="color-picker" title="Textfarbe">
+        <button type="button" style="background:#000000" onclick="onRteColorButtonClick('foreColor','\u0023000000')"></button>
+        <button type="button" style="background:#808080" onclick="onRteColorButtonClick('foreColor','\u0023808080')"></button>
+        <button type="button" style="background:#ffffff" onclick="onRteColorButtonClick('foreColor','\u0023ffffff')"></button>
+        <button type="button" style="background:#ff0000" onclick="onRteColorButtonClick('foreColor','\u0023ff0000')"></button>
+        <button type="button" style="background:#0000ff" onclick="onRteColorButtonClick('foreColor','\u00230000ff')"></button>
+        <button type="button" style="background:#008000" onclick="onRteColorButtonClick('foreColor','\u0023008000')"></button>
+        <button type="button" style="background:#ffff00" onclick="onRteColorButtonClick('foreColor','\u0023ffff00')"></button>
+      </div>
+    </div>
+
+    <div class="rte-group">
+      <span class="label">Hintergrund</span>
+      <div class="color-picker" title="Hintergrundfarbe">
+        <button type="button" style="background:#000000" onclick="onRteColorButtonClick('hiliteColor','\u0023000000')"></button>
+        <button type="button" style="background:#808080" onclick="onRteColorButtonClick('hiliteColor','\u0023808080')"></button>
+        <button type="button" style="background:#ffffff" onclick="onRteColorButtonClick('hiliteColor','\u0023ffffff')"></button>
+        <button type="button" style="background:#ff0000" onclick="onRteColorButtonClick('hiliteColor','\u0023ff0000')"></button>
+        <button type="button" style="background:#0000ff" onclick="onRteColorButtonClick('hiliteColor','\u00230000ff')"></button>
+        <button type="button" style="background:#008000" onclick="onRteColorButtonClick('hiliteColor','\u0023008000')"></button>
+        <button type="button" style="background:#ffff00" onclick="onRteColorButtonClick('hiliteColor','\u0023ffff00')"></button>
+      </div>
+    </div>
+
+    <div class="rte-group">
+      <button type="button" onclick="insertTable()">📊 Tabelle</button>
+      <button type="button" title="Zeile einfügen" onclick="addTableRow()">➕Zeile</button>
+      <button type="button" title="Zeile löschen" onclick="removeTableRow()">➖Zeile</button>
+      <button type="button" title="Spalte einfügen" onclick="addTableColumn()">➕Spalte</button>
+      <button type="button" title="Spalte löschen" onclick="removeTableColumn()">➖Spalte</button>
+    </div>
   </div>
 `;
 
@@ -1844,6 +2145,25 @@ function restoreEditorScroll(){
   if (typeof s.top === 'number') c.scrollTop = s.top;
 }
 
+/*
+ * Markiert eine Zeile in der Fragen-Datenbank als ausgewählt. Beim
+ * Aufrufen entfernt die Funktion die Markierung von der vorherigen
+ * Zeile und fügt sie der geklickten Zeile hinzu. Die zugehörige
+ * Frage-ID wird in der globalen Variable `editorSelectedRowId`
+ * gespeichert, so dass die Markierung beim erneuten Öffnen der
+ * Datenbank wieder hergestellt werden kann.
+ */
+function selectEditorRow(rowEl) {
+  if (!rowEl) return;
+  const id = rowEl.getAttribute('data-qid');
+  // Entferne Markierung von der bisher ausgewählten Zeile
+  const prev = document.querySelector('#editor .selected-row');
+  if (prev) prev.classList.remove('selected-row');
+  // Markiere die neue Zeile
+  rowEl.classList.add('selected-row');
+  editorSelectedRowId = id;
+}
+
 
 /* ===== Editor ===== */
 function showEditor() {
@@ -1870,13 +2190,16 @@ function showEditor() {
      // Gefilterte Liste erzeugen
      const filteredQuestions = questions; // Live-Filter passiert in der Tabelle
 
-  html += `<div style="margin-bottom:20px;">
+  // Action bar: arrange primary actions on the left and destructive ones on the right
+  html += `<div style="margin-bottom:20px; display:flex; flex-wrap:wrap; align-items:center; gap:8px;">
     <button type="button" onclick="newQuestion()">Neue Frage</button>
     <button type="button" onclick="showImport()">Import</button>
-    <button type="button" onclick="exportQuestions()">Export</button>
-    <button type="button" onclick="resetProgress()">Fortschritt-Reset</button>
-    <button type="button" class="delete-all-btn" onclick="deleteAllQuestions()">Lösche alle Fragen</button>
+    <button type="button" onclick="showExport()">Export</button>
     <button type="button" onclick="hideAll()">Zurück zum Dashboard</button>
+    <span style="margin-left:auto; display:flex; flex-wrap:wrap; gap:8px;">
+      <button type="button" onclick="resetProgress()" class="editor-reset-btn">Fortschritt‑Reset</button>
+      <button type="button" class="delete-all-btn" onclick="deleteAllQuestions()">Lösche alle Fragen</button>
+    </span>
     </div>`; 
   // Einzeilige Suchleiste (oberhalb der Tabelle)
   // Suchleiste: Suchtext persistent halten. Der aktuelle Suchbegriff wird in
@@ -1918,7 +2241,7 @@ function showEditor() {
     hayDate(q.lastAnswered),
   ].join(' ').toLowerCase();
 
-  html += `<tr ondblclick="editQuestion(questions.findIndex(x => x.id === '${q.id}'))"
+  html += `<tr ondblclick="editQuestion(questions.findIndex(x => x.id === '${q.id}'))" onclick="selectEditorRow(this)"
                ${rowClass}
                data-qid="${q.id}"
                data-haystack="${escapeHTML(haystack)}">
@@ -1937,7 +2260,13 @@ function showEditor() {
   document.getElementById('editor').innerHTML = html;
   setupEditorSearch(); // neue einzeilige Suche initialisieren
   showOnly('editor');
+  // Scroll-Position wiederherstellen
   setTimeout(restoreEditorScroll, 0);
+  // Markierung der zuvor ausgewählten Zeile wiederherstellen
+  if (editorSelectedRowId) {
+    const sel = document.querySelector(`#editor tr[data-qid="${editorSelectedRowId}"]`);
+    if (sel) sel.classList.add('selected-row');
+  }
 }
 
 async function deleteQuestion(idx) {
@@ -1994,6 +2323,123 @@ async function exportQuestions() {
   await alert(`✅ Export erfolgreich!\n${questions.length} Fragen wurden als "${filename}" gespeichert.`);
 }
 
+/* ===== Export mit Optionen =====
+ *
+ * Die Funktion showExport() öffnet eine einfache Oberfläche im Importer‑Container,
+ * über die der Anwender auswählen kann, ob die Formatierung der Texte
+ * erhalten bleiben soll und in welchem Dateiformat exportiert wird
+ * (Excel oder JSON). Nach der Auswahl ruft performExport() die
+ * entsprechenden Exportfunktionen auf. Diese lösen den Download aus
+ * und aktualisieren optional die Dataset‑Metadaten.
+ */
+function showExport() {
+  loadQuestions();
+  if (questions.length === 0) {
+    alert("Keine Fragen zum Exportieren vorhanden!");
+    return;
+  }
+  let html = `<h3>Export</h3>
+    <div style="margin-bottom:12px;">
+      <label><input type="checkbox" id="export-formatting" checked> Formatierung beibehalten</label>
+    </div>
+    <div style="margin-bottom:12px;">
+      <label><input type="radio" name="export-type" value="excel" checked> Excel (.xlsx)</label>
+      <label style="margin-left:12px;"><input type="radio" name="export-type" value="json"> JSON (.json)</label>
+    </div>
+    <button type="button" onclick="performExport()">Exportieren</button>
+    <button type="button" onclick="showEditor()">Abbruch</button>`;
+  const importer = document.getElementById('importer');
+  importer.innerHTML = html;
+  showOnly('importer');
+}
+
+async function performExport() {
+  const keepFmt = document.getElementById('export-formatting').checked;
+  const typeRadio = document.querySelector('input[name="export-type"]:checked');
+  const type = typeRadio ? typeRadio.value : 'excel';
+  if (type === 'json') {
+    await exportQuestionsJSON(keepFmt);
+  } else {
+    await exportQuestionsExcel(keepFmt);
+  }
+  // Nach dem Export zurück zur Fragenliste
+  showEditor();
+}
+
+async function exportQuestionsExcel(keepFormatting) {
+  loadQuestions();
+  const header = ['Lfd Nummer','Thema','Frage','Auswahlantworten','Richtige Antworten','Kommentar','Fortschritt','Schwierigkeit','Erstellt am','Zuletzt geändert','Zuletzt beantwortet','ID'];
+  const rows = [header];
+  for (const q of questions) {
+    const answers = (q.answers || []).map(ans => keepFormatting ? sanitizeHTML(ans || '') : stripHTML(ans || ''));
+    const solution = q.solution || [];
+    const correctAnswers = solution.map(idx => answers[idx]).filter(Boolean);
+    rows.push([
+      q.nr || '',
+      q.topic || '',
+      keepFormatting ? sanitizeHTML(q.text || '') : stripHTML(q.text || ''),
+      answers.join('\n'),
+      correctAnswers.join('\n'),
+      keepFormatting ? sanitizeHTML(q.comment || '') : stripHTML(q.comment || ''),
+      q.progress || 0,
+      q.difficulty || 'leicht',
+      q.createdAt ? formatDateYYYYMMDD(new Date(q.createdAt)) : '',
+      q.updatedAt ? formatDateYYYYMMDD(new Date(q.updatedAt)) : '',
+      q.lastAnswered ? formatDateYYYYMMDD(new Date(q.lastAnswered)) : '',
+      q.id || ''
+    ]);
+  }
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Fragen');
+  // Version hochzählen wenn möglich
+  let nextVersion = 1;
+  if (datasetVersion && !isNaN(parseInt(datasetVersion))) nextVersion = parseInt(datasetVersion) + 1;
+  const today = new Date().toISOString().split('T')[0];
+  const filename = `Quiz_Export_${today}_${nextVersion}.xlsx`;
+  XLSX.writeFile(wb, filename);
+  // Update dataset info to new export
+  updateDatasetInfo(filename, String(nextVersion), new Date().toLocaleDateString('de-DE'));
+  await alert(`✅ Export erfolgreich!\n${questions.length} Fragen wurden als "${filename}" gespeichert.`);
+}
+
+async function exportQuestionsJSON(keepFormatting) {
+  loadQuestions();
+  const exportList = questions.map(q => {
+    return {
+      id: q.id || generateId(),
+      nr: q.nr || '',
+      topic: q.topic || '',
+      text: keepFormatting ? sanitizeHTML(q.text || '') : stripHTML(q.text || ''),
+      answers: (q.answers || []).map(ans => keepFormatting ? sanitizeHTML(ans || '') : stripHTML(ans || '')),
+      solution: Array.isArray(q.solution) ? q.solution.slice() : [],
+      comment: keepFormatting ? sanitizeHTML(q.comment || '') : stripHTML(q.comment || ''),
+      progress: q.progress || 0,
+      difficulty: q.difficulty || 'leicht',
+      createdAt: q.createdAt || new Date().toISOString(),
+      updatedAt: q.updatedAt || new Date().toISOString(),
+      lastAnswered: q.lastAnswered || null,
+      history: Array.isArray(q.history) ? q.history : []
+    };
+  });
+  // Version hochzählen
+  let nextVersion = 1;
+  if (datasetVersion && !isNaN(parseInt(datasetVersion))) nextVersion = parseInt(datasetVersion) + 1;
+  const today = new Date().toISOString().split('T')[0];
+  const filename = `Quiz_Export_${today}_${nextVersion}.json`;
+  const blob = new Blob([JSON.stringify(exportList, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+  updateDatasetInfo(filename, String(nextVersion), new Date().toLocaleDateString('de-DE'));
+  await alert(`✅ Export erfolgreich!\n${questions.length} Fragen wurden als "${filename}" gespeichert.`);
+}
+
 async function resetProgress() {
   if(await confirm("⚠️ WARNUNG: Der Fortschritt und alle 'Zuletzt beantwortet' Daten aller Fragen werden auf Null gesetzt!\n\nFortfahren?")) {
     questions.forEach(q => { q.progress = 0; q.lastAnswered = null; q.history = []; });
@@ -2041,7 +2487,7 @@ function showEditDialog(q, idx) {
         ${renderHTML(q.comment||'')}
         </div>
 
-      <div style="margin-top:12px;">
+      <div class="modal-actions">
         <button type="button" onclick="saveEdit(${idx})">Speichern</button>
         <button type="button" onclick="closeModal()">Abbruch</button>
       </div>
@@ -2144,7 +2590,7 @@ window.editQuestion = function(idx){ showEditDialog(questions[idx], idx); };
 /* ===== Import ===== */
 function showImport() {
   let html = `<h3>Import aus Excel/CSV-Datei</h3>
-    <input type="file" id="file-input"><br>
+    <input type="file" id="file-input" accept=".xlsx,.xls,.json"><br>
     <button type="button" onclick="showEditor()">Zurück</button>
     <div style="font-size:0.95em; opacity:0.8; margin: 16px 0;">
       <strong>Benötigte Spalten:</strong> Lfd Nummer, Thema, Frage, Auswahlantworten, Richtige Antworten, Kommentar, Fortschritt, Schwierigkeit<br>
@@ -2167,7 +2613,32 @@ function nameArrayKeys(headerArr){
 function handleImport(e) {
   let f = e.target.files[0];
   if (!f) return;
-  let reader = new FileReader();
+  // Lese Metadaten aus Dateinamen und Zeitstempel für den Fortschrittsbalken
+  const name = f.name;
+  const verMatch = name.match(/_(\d+)(?=\.(xlsx|xls|json))/);
+  const version = verMatch ? verMatch[1] : '';
+  const lastModDate = new Date(f.lastModified);
+  updateDatasetInfo(name, version, lastModDate.toLocaleDateString('de-DE'));
+
+  // Wenn eine JSON‑Datei importiert wird, parse sie als Text
+  const lowerName = name.toLowerCase();
+  if (lowerName.endsWith('.json')) {
+    const reader = new FileReader();
+    reader.onload = function(evt) {
+      try {
+        const jsonData = JSON.parse(evt.target.result);
+        handleJsonImport(jsonData);
+      } catch(err) {
+        alert('Ungültige JSON-Datei.');
+        console.error(err);
+      }
+    };
+    reader.readAsText(f);
+    return;
+  }
+
+  // Standard: Excel/CSV importieren
+  const reader = new FileReader();
   reader.onload = function(evt) {
     let data = evt.target.result;
     let workbook = XLSX.read(data, {type: 'binary'});
@@ -2248,6 +2719,60 @@ function handleImport(e) {
     showImportPreview(previewList, invalidCount, partialMatchCount, partialMatchDetails);
   };
   reader.readAsBinaryString(f);
+}
+
+// Importiert eine Liste von Fragen aus einer JSON‑Struktur. Die JSON‑Datei
+// sollte ein Array von Objekten enthalten, das möglichst den gleichen
+// Aufbau wie unsere internen Fragenobjekte besitzt. Für jede Frage wird
+// ein neuer Lfd. Nr. vergeben, falls die Nummer bereits existiert.
+// Fragen ohne Lösungen werden gelb markiert wie beim Excel‑Import.
+function handleJsonImport(data) {
+  try {
+    if (!Array.isArray(data)) {
+      alert('JSON muss ein Array von Fragen enthalten.');
+      return;
+    }
+    let previewList = [];
+    let invalidCount = 0;
+    const existingNrs = new Set(questions.map(q => parseInt(q.nr) || 0));
+    data.forEach(item => {
+      if (!item || typeof item !== 'object') return;
+      if (!item.text || !item.answers) return;
+      // Nummer übernehmen oder neue freie wählen
+      let rawNr = parseInt(item.nr) || 1;
+      let nr = rawNr;
+      while (existingNrs.has(nr)) nr++;
+      existingNrs.add(nr);
+      // Antworten
+      let ansList = Array.isArray(item.answers) ? item.answers.map(a => String(a)) : [];
+      let solList = Array.isArray(item.solution) ? item.solution.filter(ix => typeof ix === 'number') : [];
+      if (!solList || solList.length === 0) invalidCount++;
+      previewList.push({
+        id: item.id || generateId(),
+        nr,
+        topic: item.topic || '',
+        text: item.text || '',
+        answers: ansList,
+        solution: solList,
+        comment: item.comment || '',
+        progress: parseInt(item.progress) || 0,
+        difficulty: item.difficulty || 'leicht',
+        createdAt: item.createdAt || new Date().toISOString(),
+        updatedAt: item.updatedAt || new Date().toISOString(),
+        lastAnswered: item.lastAnswered || null,
+        history: Array.isArray(item.history) ? item.history : [],
+        markMissing: !solList || solList.length === 0,
+        hasPartialMatch: false,
+        unmatchedSolutions: []
+      });
+    });
+    // Für JSON‑Import haben wir keine partiell erkannten Lösungen, daher
+    // wird partialMatchCount auf 0 gesetzt.
+    showImportPreview(previewList, invalidCount, 0, []);
+  } catch(err) {
+    console.error(err);
+    alert('Fehler beim Verarbeiten der JSON‑Daten.');
+  }
 }
 
 function showImportPreview(list, invalidCount, partialMatchCount, partialMatchDetails) {
@@ -2628,7 +3153,14 @@ function showQuizCard() {
     <div id="result"></div>`;
 
   document.getElementById('quiz-card').innerHTML = html;
-  document.getElementById('progress').textContent = `Fortschritt: ${quizProg}/${quizList.length}`;
+  {
+    const progEl = document.getElementById('progress');
+    if (progEl) {
+      // Zeige links den Fortschritt und rechts den Dateinamen sowie das letzte Änderungsdatum.
+      const fileInfo = (datasetName ? datasetName : '') + (datasetLastModified ? ' | ' + datasetLastModified : '');
+      progEl.innerHTML = `<span>Fortschritt: ${quizProg}/${quizList.length}</span><span>${fileInfo}</span>`;
+    }
+  }
 
   // Prüfen-Status resetten
   quizCheckedOnce = false;
@@ -2773,7 +3305,7 @@ function checkQuizAnswer() {
   const commentHtml = `
     <div style="margin-top: 16px; padding: 12px; border-radius: 8px; border: 1px solid;">
     <div style="font-size: 1.1em; font-weight: bold; margin-bottom: 12px; color: color-mix(in srgb, CanvasText 30%, blue 70%);">Kommentar:</div>
-    <div class="comment-body" style="margin-top: 12px; color: #444;">
+    <div class="comment-body" style="margin-top: 12px; color: var(--text);">
       ${hasContent ? renderHTML(normalized) : '<em>Kein Kommentar vorhanden.</em>'}
     </div>
   </div>`;
@@ -2784,7 +3316,11 @@ function checkQuizAnswer() {
   const resultEl = document.getElementById('result');
   if (resultEl) resultEl.innerHTML = result;
   const progEl = document.getElementById('progress');
-  if (progEl) progEl.textContent = `Fortschritt: ${quizProg}/${quizList.length}`;
+  if (progEl) {
+    // Zeige links den Fortschritt und rechts den Dateinamen sowie das letzte Änderungsdatum.
+    const fileInfo = (datasetName ? datasetName : '') + (datasetLastModified ? ' | ' + datasetLastModified : '');
+    progEl.innerHTML = `<span>Fortschritt: ${quizProg}/${quizList.length}</span><span>${fileInfo}</span>`;
+  }
 }
 
 function endQuiz() {
@@ -2807,6 +3343,9 @@ async function resetAllData() {
     if (await confirm("🔴 LETZTE WARNUNG: Alle Quiz-Daten werden gelöscht!\n\nFortfahren?")) {
       localStorage.removeItem('quizdb_v2');
       localStorage.removeItem('quiz_settings');
+      // Entferne auch gespeicherte Dataset-Infos, sodass der Fortschrittsbalken
+      // keine veralteten Angaben mehr zeigt.
+      updateDatasetInfo('', '', '');
       await alert("✅ Quiz-Daten wurden gelöscht!");
       location.reload();
     }
@@ -2826,14 +3365,6 @@ document.addEventListener('DOMContentLoaded', () => {
   // im DOM vorhanden sein, damit showRte() sie finden kann.
   initFloatingRte();
 });
-</script>
-<!-- Register the service worker to enable offline caching and PWA behaviour -->
-<script>
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', function() {
-    navigator.serviceWorker.register('service-worker.js');
-  });
-}
 </script>
 </body>
 </html>
