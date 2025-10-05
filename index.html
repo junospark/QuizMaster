@@ -1,8 +1,8 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Interaktives Quiz</title>
+  <title>Interactive Quiz</title>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.umd.min.js"></script>
@@ -65,6 +65,12 @@
     button[disabled]{opacity:.6; cursor:not-allowed; filter:grayscale(.6); background: color-mix(in srgb, ButtonFace 90%, gray 10%); color:GrayText; border-color: color-mix(in srgb, ButtonBorder 70%, gray 30%);}
     #check-btn[disabled]{background: color-mix(in srgb, ButtonFace 85%, gray 15%);}
 
+    /* Make the "Check" button larger than other buttons for prominence */
+    #check-btn{
+      font-size: 1.1em;
+      padding: 12px 24px;
+    }
+
     input, textarea, select {
       font-family:inherit; font-size:inherit; padding:6px 8px; margin:4px 0;
       border:1px solid ButtonBorder; border-radius:4px; background: Field; color: FieldText;
@@ -126,7 +132,8 @@
     .comment-btn[disabled] { background: color-mix(in srgb, ButtonFace 90%, gray 10%); color:GrayText; cursor:not-allowed; }
 
     .scroll-table-container { width:100%; max-width: calc(100vw - 80px); overflow:auto; height:55vh; min-height:200px; border:1px solid ButtonBorder; border-radius:6px; background: Field; }
-    table { border-collapse:collapse; width:100%; min-width:700px; font-size:0.95em; }
+    /* Use auto table layout so columns adapt to the available space. Avoid fixed minimum widths to allow responsive scaling */
+    table { border-collapse:collapse; width:100%; table-layout:auto; font-size:0.95em; }
     th, td { border:1px solid color-mix(in srgb, ButtonBorder 80%, transparent 20%); padding:8px 12px; text-align:left; background: Field; }
     th { background: color-mix(in srgb, Field 85%, CanvasText 15%); position:sticky; top:0; z-index:2; font-weight:600; }
     tr:hover td { background: color-mix(in srgb, Field 90%, Highlight 10%); }
@@ -168,7 +175,8 @@
       .stats-grid{grid-template-columns:repeat(2,1fr);}
       #main, #quiz-card, #editor, #importer, #progress{padding:16px; margin-top:12px;}
       .scroll-table-container{max-width: calc(100vw - 32px);}
-      table, th, td { min-width:400px; font-size:0.9em; }
+      /* on small screens shrink table columns; no fixed minimum width */
+      table, th, td { font-size:0.9em; }
       #modal-content, #preview-content { width:95vw; padding:16px; }
       .quiz-top{flex-direction:column; gap:8px;}
       button{padding:10px 16px; margin:6px 6px 6px 0;}
@@ -187,6 +195,23 @@
     }
     .rte-toolbar{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
     .rte-toolbar button,input[type="color"],select{padding:6px 8px}
+
+    /* Draw subtle boxes around groups of formatting controls in the rich text editor.  
+       This improves visual separation between colour pickers, background colours and table tools. */
+    .rte-group {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      border: 1px solid ButtonBorder;
+      border-radius: 4px;
+      padding: 4px;
+      margin-right: 6px;
+    }
+
+    /* Highlight differences when comparing existing questions with imported ones.  
+       "Old" values are tinted red and "New" values teal to quickly spot changes. */
+    .diff-old { background: color-mix(in srgb, Field 75%, red 25%); }
+    .diff-new { background: color-mix(in srgb, Field 75%, lightseagreen 25%); }
 
     /* Gruppierungen in der schwebenden RTE‑Toolbar.  Durch die Angabe
        einer 100% Breite wird eine neue Zeile begonnen. Jede Gruppe
@@ -513,37 +538,37 @@
 <body>
 <div id="main">
   <div class="dashboard-header">
-    <h2>📊 Quiz-Dashboard</h2>
+    <h2>📊 Quiz Dashboard</h2>
     <div>
       <!-- Primary actions on the dashboard are given the "header-big-btn" class for prominence -->
-      <button type="button" onclick="showQuizInit()" class="header-big-btn">Quiz starten</button>
-      <button type="button" onclick="showEditor()" class="header-big-btn">Fragen Datenbank</button>
+      <button type="button" onclick="showQuizInit()" class="header-big-btn">Start Quiz</button>
+      <button type="button" onclick="showEditor()" class="header-big-btn">Question Database</button>
       <!-- Secondary actions use smaller buttons with dark backgrounds; their hover states signal caution/danger -->
-      <button type="button" onclick="resetCache()" class="header-small-reset-btn">🔄 Quiz‑Einstellungen zurücksetzen</button>
-      <button type="button" onclick="resetAllData()" class="header-small-delete-btn">🗑️ Alle Quiz‑Daten löschen</button>
+      <button type="button" onclick="resetCache()" class="header-small-reset-btn">🔄 Reset quiz settings</button>
+      <button type="button" onclick="resetAllData()" class="header-small-delete-btn">🗑️ Delete all quiz data</button>
     </div>
   </div>
 
   <div class="settings-panel">
     <div class="input-group">
-      <label for="target-repetitions">Wiederholungen bis die Frage gelernt ist:</label>
+      <label for="target-repetitions">Repetitions until the question is learned:</label>
       <input type="number" id="target-repetitions" min="1" max="20" value="3" onchange="updateDashboard()">
     </div>
     <div class="input-group">
-      <label for="start-date">Startdatum:</label>
+      <label for="start-date">Start date:</label>
       <input type="date" id="start-date" onchange="updateDashboard()">
     </div>
     <div class="input-group">
-      <label for="exam-date">Enddatum:</label>
+      <label for="exam-date">End date:</label>
       <input type="date" id="exam-date" onchange="updateDashboard()">
     </div>
     <div class="input-group">
-      <button type="button" onclick="saveDashboardSettings()" style="margin-top: 28px;">Einstellungen speichern</button>
+      <button type="button" onclick="saveDashboardSettings()" style="margin-top: 28px;">Save settings</button>
     </div>
   </div>
 
   <div class="dashboard-card">
-    <h3>📅 Lernplanung</h3>
+    <h3>📅 Study plan</h3>
     <div id="planning-info"></div>
     <div class="chart-container">
       <canvas id="planning-chart"></canvas>
@@ -551,7 +576,7 @@
   </div>
 
   <div class="dashboard-card" style="margin-top: 20px;">
-    <h3>🎯 Fortschritt nach Themen</h3>
+    <h3>🎯 Progress by topic</h3>
     <div id="theme-progress"></div>
   </div>
 </div>
@@ -566,10 +591,10 @@
 <!-- Native Browser-Dialog -->
 <div class="native-dialog-overlay" id="dialog-overlay"></div>
 <div class="native-dialog" id="native-dialog">
-  <h4 id="dialog-title">Hinweis</h4>
+  <h4 id="dialog-title">Notice</h4>
   <p id="dialog-message"></p>
   <div class="native-dialog-buttons">
-    <button type="button" id="dialog-cancel" style="display:none;">Abbrechen</button>
+    <button type="button" id="dialog-cancel" style="display:none;">Cancel</button>
     <button type="button" id="dialog-ok">OK</button>
   </div>
 </div>
@@ -754,11 +779,11 @@ function saveDashboardSettings() {
   };
   localStorage.setItem(settingsKey, JSON.stringify(settings));
   updateDashboard();
-  showNativeDialog('Einstellungen wurden gespeichert!', 'Gespeichert');
+  showNativeDialog('Settings have been saved!', 'Saved');
 }
 
 /* ========= Native Dialoge ========= */
-function showNativeDialog(message, title = 'Hinweis', showCancel = false) {
+function showNativeDialog(message, title = 'Notice', showCancel = false) {
   return new Promise((resolve) => {
     document.getElementById('dialog-title').textContent = title;
     document.getElementById('dialog-message').textContent = message;
@@ -778,8 +803,8 @@ function showNativeDialog(message, title = 'Hinweis', showCancel = false) {
     if (showCancel) document.getElementById('dialog-cancel').addEventListener('click', handleCancel);
   });
 }
-window.alert  = (message) => showNativeDialog(message, 'Hinweis', false);
-window.confirm= (message) => showNativeDialog(message, 'Bestätigung', true);
+window.alert  = (message) => showNativeDialog(message, 'Notice', false);
+window.confirm= (message) => showNativeDialog(message, 'Confirmation', true);
 
 /* ========= Datenbank laden/speichern ========= */
 function ensureIds(){
@@ -1075,20 +1100,20 @@ function updatePlanningView(settings) {
 
   planningInfoEl.innerHTML = `
     <div class="stats-grid">
-      <div class="stat-item"><div class="stat-value">${totalQuestions}</div><div class="stat-label">Gesamt Fragen</div></div>
-      <div class="stat-item"><div class="stat-value">${learnedQuestions}</div><div class="stat-label">Fragen gelernt</div></div>
-      <div class="stat-item"><div class="stat-value">${answeredToday}</div><div class="stat-label">Heute beantwortet</div></div>
-      <div class="stat-item"><div class="stat-value">${daysRemaining}</div><div class="stat-label">Tage verbleibend</div></div>
-      <div class="stat-item"><div class="stat-value">${Math.round(plannedProgress)}%</div><div class="stat-label">Geplanter Fortschritt</div></div>
+      <div class="stat-item"><div class="stat-value">${totalQuestions}</div><div class="stat-label">Total questions</div></div>
+      <div class="stat-item"><div class="stat-value">${learnedQuestions}</div><div class="stat-label">Questions learned</div></div>
+      <div class="stat-item"><div class="stat-value">${answeredToday}</div><div class="stat-label">Answered today</div></div>
+      <div class="stat-item"><div class="stat-value">${daysRemaining}</div><div class="stat-label">Days remaining</div></div>
+      <div class="stat-item"><div class="stat-value">${Math.round(plannedProgress)}%</div><div class="stat-label">Planned progress</div></div>
     </div>
     <div style="margin:16px 0;">
-      <div>Lernfortschritt mit allen Wiederholungen vs. Planung</div>
+      <div>Learning progress with all repetitions vs. planned</div>
       <div class="progress-bar">
         <div class="progress-fill ${actualProgress >= plannedProgress ? 'good' : actualProgress >= plannedProgress * 0.8 ? 'warning' : 'danger'}"
           style="width:${Math.max(actualProgress, 2)}%"></div>
       </div>
       <div style="font-size: 0.9em; margin-top: 4px;">
-        Ist: ${Math.round(actualProgress)}% | Soll: ${Math.round(plannedProgress)}%
+        Actual: ${Math.round(actualProgress)}% | Target: ${Math.round(plannedProgress)}%
       </div>
     </div>
   `;
@@ -1114,7 +1139,7 @@ function updatePlanningView(settings) {
         const ctx = chart.ctx;
         const color = (opts && opts.color) || '#ef4444';
         const dash  = (opts && opts.dash)  || [4,4];
-        const label = (opts && opts.label) || 'Heute';
+        const label = (opts && opts.label) || 'Today';
 
         ctx.save();
         ctx.setLineDash(dash);
@@ -1190,7 +1215,7 @@ function updatePlanningChart(settings) {
        d <= padEnd; d = new Date(d.getTime() + DAY)) {
     labelsISO.push(fmtYMD(d));
   }
-  const labels = labelsISO.map(iso => parseYMD(iso).toLocaleDateString('de-DE', { day:'2-digit', month:'2-digit' }));
+  const labels = labelsISO.map(iso => parseYMD(iso).toLocaleDateString('en-GB', { day:'2-digit', month:'2-digit' }));
   const todayISO = fmtYMD(new Date());
   const todayIdx = labelsISO.indexOf(todayISO);  // -1, wenn heute nicht im Fenster liegt
 
@@ -1233,7 +1258,7 @@ function updatePlanningChart(settings) {
       labels,
       datasets: [
         {
-          label:'Planung',
+          label:'Planned',
           data: plannedData,
           borderColor:'#3b82f6',
           backgroundColor:'rgba(59,130,246,0.1)',
@@ -1242,7 +1267,7 @@ function updatePlanningChart(settings) {
           spanGaps:false
         },
         {
-          label:'Tatsächlicher Fortschritt (absolut)',
+          label:'Actual progress (absolute)',
           data: actualAbsData,
           borderColor:'#22c55e',
           backgroundColor:'rgba(34,197,94,0.1)',
@@ -1251,7 +1276,7 @@ function updatePlanningChart(settings) {
           spanGaps:false
         },
         {
-          label:'Gelernte Fragen (Anteil)',
+          label:'Questions learned (proportion)',
           data: learnedData,
           borderColor:'#a855f7',
           backgroundColor:'rgba(168,85,247,0.12)',
@@ -1269,7 +1294,7 @@ function updatePlanningChart(settings) {
       plugins:{
         tooltip:{ callbacks:{ label:(ctx)=> (ctx.raw==null?'':`${ctx.dataset.label}: ${Math.round(ctx.parsed.y)}%`) } },
         zoom:{ pan:{enabled:true,mode:'x'}, zoom:{wheel:{enabled:true}, pinch:{enabled:true}, mode:'x'}, limits:{x:{minRange:3}} },
-        todayLine: { index: todayIdx, label: 'Heute', color: '#ef4444', dash: [4,4] } // <— NEU
+        todayLine: { index: todayIdx, label: 'Today', color: '#ef4444', dash: [4,4] } // <— NEU
       },
       scales:{ y:{ beginAtZero:true, max:100, ticks:{ callback:v=>v+'%' } } }
     },
@@ -1292,7 +1317,7 @@ function updateThemeProgress(settings) {
 
   const themes = [...new Set(questions.map(q => q.topic).filter(Boolean))];
   if (themes.length === 0) {
-    themeProgressEl.innerHTML = '<p style="text-align: center; opacity: 0.7;">Keine Themen vorhanden. Fügen Sie Fragen hinzu, um den Fortschritt zu verfolgen.</p>';
+    themeProgressEl.innerHTML = '<p style="text-align: center; opacity: 0.7;">No topics available. Add questions to track progress.</p>';
     return;
   }
 
@@ -1314,13 +1339,13 @@ function updateThemeProgress(settings) {
       <div class="theme-progress">
         <div class="theme-header">
           <div class="theme-name">${theme}</div>
-          <div class="theme-stats">${learned}/${themeQuestions.length} Fragen gelernt (Ø ${avgProgress.toFixed(1)}x)</div>
+          <div class="theme-stats">${learned}/${themeQuestions.length} questions learned (Ø ${avgProgress.toFixed(1)}x)</div>
         </div>
         <div class="progress-bar">
           <div class="progress-fill ${progressClass}" style="width: ${Math.max(percentage, 2)}%"></div>
         </div>
         <div style="font-size: 0.9em; margin-top: 4px; opacity: 0.8;">
-          ${Math.round(percentage)}% Wiederholungen abgeschlossen
+          ${Math.round(percentage)}% repetitions completed
         </div>
       </div>
     `;
@@ -1370,7 +1395,7 @@ function setupEditorSearch(){
       r.style.display = show ? '' : 'none';
       if (show) visible++;
     });
-    count.textContent = q ? `Treffer: ${visible} / ${total}` : `Gesamt: ${total}`;
+    count.textContent = q ? `Matches: ${visible} / ${total}` : `Total: ${total}`;
   };
 
   if (input){
@@ -1428,9 +1453,9 @@ function setupQuizSearch(){
     );
     if (count){
       if (search){
-        count.textContent = `Treffer: ${filtered.length}`;
+        count.textContent = `Matches: ${filtered.length}`;
       } else {
-        count.textContent = `Fragen: ${filtered.length}`;
+        count.textContent = `Questions: ${filtered.length}`;
       }
     }
   };
@@ -1607,15 +1632,15 @@ function renderEditorSearchBar(){
   return `
     <div id="editor-searchbar" class="settings-panel" style="margin-top:12px; margin-bottom:12px;">
       <div class="input-group">
-        <label>Suche Lfd. Nr.</label>
+        <label>Search No.</label>
         <input type="text" id="search-nr" placeholder="z.B. 12" value="${escapeHTML(editorSearch.nr)}">
       </div>
       <div class="input-group">
-        <label>Suche Frage / Thema</label>
-        <input type="text" id="search-text" placeholder="Stichwort..." value="${escapeHTML(editorSearch.text)}">
+        <label>Search question / topic</label>
+        <input type="text" id="search-text" placeholder="Keyword..." value="${escapeHTML(editorSearch.text)}">
       </div>
       <div class="input-group">
-        <label>Datum (Erstellt / Geändert / Zuletzt beantwortet)</label>
+        <label>Date (created / modified / last answered)</label>
         <input type="date" id="search-date" value="${editorSearch.date}">
       </div>
       <div class="input-group" style="align-self:end">
@@ -1786,8 +1811,8 @@ function insertImageFromFile(){
 // &nbsp; befüllt, sodass sie sichtbar sind.
 function insertTable(){
   if(!_activeEditable) return;
-  let rows = parseInt(prompt('Anzahl Zeilen:', '2'), 10);
-  let cols = parseInt(prompt('Anzahl Spalten:', '2'), 10);
+  let rows = parseInt(prompt('Number of rows:', '2'), 10);
+  let cols = parseInt(prompt('Number of columns:', '2'), 10);
   if (!rows || rows < 1 || !cols || cols < 1) return;
   rows = Math.min(rows, 10);
   cols = Math.min(cols, 10);
@@ -1828,7 +1853,7 @@ function getSelectedTableCell() {
 // ausgewählt, wird eine Fehlermeldung ausgegeben.
 function addTableRow() {
   const cell = getSelectedTableCell();
-  if (!cell) { alert('Setze den Cursor in eine Tabellenzelle, um eine Zeile hinzuzufügen.'); return; }
+  if (!cell) { alert('Place the cursor in a table cell to insert a row.'); return; }
   const row = cell.parentNode;
   const table = row.parentNode;
   const newRow = row.cloneNode(true);
@@ -1840,7 +1865,7 @@ function addTableRow() {
 // verbleibt. Bei Einzelzeilen erfolgt keine Aktion.
 function removeTableRow() {
   const cell = getSelectedTableCell();
-  if (!cell) { alert('Setze den Cursor in eine Tabellenzelle, um eine Zeile zu löschen.'); return; }
+  if (!cell) { alert('Place the cursor in a table cell to delete a row.'); return; }
   const row = cell.parentNode;
   const table = row.parentNode;
   if (table.rows.length <= 1) return;
@@ -1851,7 +1876,7 @@ function removeTableRow() {
 // Tabelle aktiv, erscheint eine Fehlermeldung.
 function addTableColumn() {
   const cell = getSelectedTableCell();
-  if (!cell) { alert('Setze den Cursor in eine Tabellenzelle, um eine Spalte hinzuzufügen.'); return; }
+  if (!cell) { alert('Place the cursor in a table cell to insert a column.'); return; }
   const colIndex = Array.from(cell.parentNode.children).indexOf(cell);
   const table = cell.closest('table');
   Array.from(table.rows).forEach(r => {
@@ -1864,7 +1889,7 @@ function addTableColumn() {
 // vorhanden ist.
 function removeTableColumn() {
   const cell = getSelectedTableCell();
-  if (!cell) { alert('Setze den Cursor in eine Tabellenzelle, um eine Spalte zu löschen.'); return; }
+  if (!cell) { alert('Place the cursor in a table cell to delete a column.'); return; }
   const colIndex = Array.from(cell.parentNode.children).indexOf(cell);
   const table = cell.closest('table');
   if (!table || table.rows[0].cells.length <= 1) return;
@@ -1913,15 +1938,15 @@ function initFloatingRte(){
     <button type="button" onclick="rteCmd('italic')"><i>I</i></button>
     <button type="button" onclick="rteCmd('underline')"><u>U</u></button>
     <button type="button" onclick="rteCmd('strikeThrough')"><s>S</s></button>
-    <button type="button" onclick="rteCmd('insertUnorderedList')">• Liste</button>
-    <button type="button" onclick="rteCmd('insertOrderedList')">1. Liste</button>
+    <button type="button" onclick="rteCmd('insertUnorderedList')">• List</button>
+    <button type="button" onclick="rteCmd('insertOrderedList')">1. List</button>
     <button type="button" onclick="rteCmd('justifyLeft')">⟸</button>
     <button type="button" onclick="rteCmd('justifyCenter')">⇔</button>
     <button type="button" onclick="rteCmd('justifyRight')">⟹</button>
 
-    <select id="rte-font" title="Schriftart" onchange="onRteFontChange(this.value)">
-      <option value="">Schriftart</option>
-      <option value="inherit">Standard</option>
+    <select id="rte-font" title="Font" onchange="onRteFontChange(this.value)">
+      <option value="">Font</option>
+      <option value="inherit">Default</option>
       <option value="'Segoe UI', Roboto, Arial, sans-serif">System Sans</option>
       <option value="Arial, Helvetica, sans-serif">Arial</option>
       <option value="Georgia, 'Times New Roman', serif">Georgia/Times</option>
@@ -1931,28 +1956,28 @@ function initFloatingRte(){
       <option value="monospace">Monospace</option>
     </select>
 
-    <select id="rte-size" title="Schriftgröße" onchange="onRteSizeChange(this.value)">
-      <option value="">Größe</option>
-      <option value="inherit">Standard</option>
+    <select id="rte-size" title="Size" onchange="onRteSizeChange(this.value)">
+      <option value="">Size</option>
+      <option value="inherit">Default</option>
       <option value="12px">12</option><option value="14px">14</option>
       <option value="16px">16</option><option value="18px">18</option>
       <option value="20px">20</option><option value="24px">24</option>
       <option value="28px">28</option><option value="32px">32</option>
     </select>
 
-    <button type="button" onclick="(function(){let url=prompt('Link-URL:'); if(url){rteCmd('createLink', url);}})()">🔗</button>
-    <button type="button" onclick="insertImageFromFile()">🖼️ Bild</button>
+    <button type="button" onclick="(function(){let url=prompt('Link URL:'); if(url){rteCmd('createLink', url);}})()">🔗</button>
+    <button type="button" onclick="insertImageFromFile()">🖼️ Image</button>
 
     <select onchange="insertSymbol(this.value); this.selectedIndex=0;">
-      <option>Zeichen…</option><option>±</option><option>→</option><option>←</option>
+      <option>Symbol…</option><option>±</option><option>→</option><option>←</option>
       <option>≥</option><option>≤</option><option>µ</option><option>Ω</option><option>∞</option>
     </select>
-    <button type="button" onclick="rteCmd('removeFormat')">Format entfernen</button>
+    <button type="button" onclick="rteCmd('removeFormat')">Remove format</button>
 
-    <!-- Neue Zeilen für Farben und Tabellenfunktionen -->
+    <!-- Colour and table controls grouped with borders for clarity -->
     <div class="rte-group">
-      <span class="label">Textfarbe</span>
-      <div class="color-picker" title="Textfarbe">
+      <span class="label">Text colour</span>
+      <div class="color-picker" title="Text colour">
         <button type="button" style="background:#000000" onclick="onRteColorButtonClick('foreColor','\u0023000000')"></button>
         <button type="button" style="background:#808080" onclick="onRteColorButtonClick('foreColor','\u0023808080')"></button>
         <button type="button" style="background:#ffffff" onclick="onRteColorButtonClick('foreColor','\u0023ffffff')"></button>
@@ -1964,8 +1989,8 @@ function initFloatingRte(){
     </div>
 
     <div class="rte-group">
-      <span class="label">Hintergrund</span>
-      <div class="color-picker" title="Hintergrundfarbe">
+      <span class="label">Background</span>
+      <div class="color-picker" title="Background colour">
         <button type="button" style="background:#000000" onclick="onRteColorButtonClick('hiliteColor','\u0023000000')"></button>
         <button type="button" style="background:#808080" onclick="onRteColorButtonClick('hiliteColor','\u0023808080')"></button>
         <button type="button" style="background:#ffffff" onclick="onRteColorButtonClick('hiliteColor','\u0023ffffff')"></button>
@@ -1977,11 +2002,11 @@ function initFloatingRte(){
     </div>
 
     <div class="rte-group">
-      <button type="button" onclick="insertTable()">📊 Tabelle</button>
-      <button type="button" title="Zeile einfügen" onclick="addTableRow()">➕Zeile</button>
-      <button type="button" title="Zeile löschen" onclick="removeTableRow()">➖Zeile</button>
-      <button type="button" title="Spalte einfügen" onclick="addTableColumn()">➕Spalte</button>
-      <button type="button" title="Spalte löschen" onclick="removeTableColumn()">➖Spalte</button>
+      <button type="button" onclick="insertTable()">📊 Table</button>
+      <button type="button" title="Insert row" onclick="addTableRow()">➕Row</button>
+      <button type="button" title="Delete row" onclick="removeTableRow()">➖Row</button>
+      <button type="button" title="Insert column" onclick="addTableColumn()">➕Column</button>
+      <button type="button" title="Delete column" onclick="removeTableColumn()">➖Column</button>
     </div>
   </div>
 `;
@@ -2174,16 +2199,16 @@ function showEditor() {
   let missingSolutionNrs = questions.filter(q => !q.solution || q.solution.length === 0).map(q => q.nr || '?');
   let missingAnswersNrs  = questions.filter(q => !q.answers  || q.answers.length  === 0).map(q => q.nr || '?');
 
-  let html = `<h3>Fragen Datenbank <span style="font-size:0.85em; opacity:0.7;">(Doppelklick für Bearbeitung)</span></h3>`;
+  let html = `<h3>Question Database <span style="font-size:0.85em; opacity:0.7;">(double‑click to edit)</span></h3>`;
 
 
   if(missingSolutionCount > 0 || missingAnswersCount > 0) {
     html += `<div style="margin-bottom:16px; padding:12px; background:color-mix(in srgb, Field 80%, yellow 20%); border:1px solid color-mix(in srgb, ButtonBorder 70%, orange 30%); border-radius:6px;">`;
     if(missingSolutionCount > 0) {
-      html += `<div style="font-weight:bold; margin-bottom:8px;">⚠️ ${missingSolutionCount} Fragen ohne Lösung: Nr. ${missingSolutionNrs.join(', ')}</div>`;
+      html += `<div style="font-weight:bold; margin-bottom:8px;">⚠️ ${missingSolutionCount} questions without solution: No. ${missingSolutionNrs.join(', ')}</div>`;
     }
     if(missingAnswersCount > 0) {
-      html += `<div style="font-weight:bold;">❌ ${missingAnswersCount} Fragen ohne Antworten: Nr. ${missingAnswersNrs.join(', ')}</div>`;
+      html += `<div style="font-weight:bold;">❌ ${missingAnswersCount} questions without answers: No. ${missingAnswersNrs.join(', ')}</div>`;
     }
     html += `</div>`;
   }
@@ -2192,13 +2217,13 @@ function showEditor() {
 
   // Action bar: arrange primary actions on the left and destructive ones on the right
   html += `<div style="margin-bottom:20px; display:flex; flex-wrap:wrap; align-items:center; gap:8px;">
-    <button type="button" onclick="newQuestion()">Neue Frage</button>
+    <button type="button" onclick="newQuestion()">New question</button>
     <button type="button" onclick="showImport()">Import</button>
     <button type="button" onclick="showExport()">Export</button>
-    <button type="button" onclick="hideAll()">Zurück zum Dashboard</button>
+    <button type="button" onclick="hideAll()">Back to dashboard</button>
     <span style="margin-left:auto; display:flex; flex-wrap:wrap; gap:8px;">
-      <button type="button" onclick="resetProgress()" class="editor-reset-btn">Fortschritt‑Reset</button>
-      <button type="button" class="delete-all-btn" onclick="deleteAllQuestions()">Lösche alle Fragen</button>
+      <button type="button" onclick="resetProgress()" class="editor-reset-btn">Reset progress</button>
+      <button type="button" class="delete-all-btn" onclick="deleteAllQuestions()">Delete all questions</button>
     </span>
     </div>`; 
   // Einzeilige Suchleiste (oberhalb der Tabelle)
@@ -2206,15 +2231,15 @@ function showEditor() {
   // editorSearch.text gespeichert und hier als value vorbelegt. Nur durch
   // Klick auf das ✕-Symbol oder ESC wird der Suchtext gelöscht.
   html += `<div class="editor-searchbar" style="display:flex; gap:8px; align-items:center; margin:12px 0;">
-    <input id="editor-search" type="text" placeholder="Suche in Nr. / Thema / Frage / Datum …" style="flex:1; min-width:200px;" value="${escapeHTML(editorSearch.text || '')}">
-    <button type="button" id="editor-search-clear" title="Suche löschen">✕</button>
+    <input id="editor-search" type="text" placeholder="Search in No. / Topic / Question / Date …" style="flex:1; min-width:200px;" value="${escapeHTML(editorSearch.text || '')}">
+    <button type="button" id="editor-search-clear" title="Clear search">✕</button>
     <span id="editor-search-count" style="opacity:.75; font-size:.9em;"></span>
   </div>`;
   // Tabellencontainer
    html += `<div class="scroll-table-container"><table>
     <thead>
       <tr>
-        <th></th><th>Lfd. Nr.</th><th>Thema</th><th>Frage</th><th>Schwierigkeit</th><th>Fortschritt</th><th>Zuletzt beantwortet</th>
+        <th></th><th>No.</th><th>Topic</th><th>Question</th><th>Difficulty</th><th>Progress</th><th>Last answered</th>
       </tr>
     </thead>
     <tbody>
@@ -2223,14 +2248,14 @@ function showEditor() {
   let hasNoSolution = (!q.solution || q.solution.length === 0);
   let hasNoAnswers  = (!q.answers  || q.answers.length  === 0);
   let rowClass = (hasNoSolution || hasNoAnswers) ? 'class="missing-solution-row"' : '';
-  let lastAnsweredFormatted = q.lastAnswered ? new Date(q.lastAnswered).toLocaleDateString('de-DE') : '-';
+  let lastAnsweredFormatted = q.lastAnswered ? new Date(q.lastAnswered).toLocaleDateString('en-GB') : '-';
 
   // Such-„Heuhaufen“: Nr, Thema, Fragetext, alle Datums-Varianten (de-DE + yyyy-mm-dd)
   const hayDate = d => {
     if (!d) return '';
     const x = new Date(d);
     if (!isFinite(+x)) return '';
-    return `${x.toLocaleDateString('de-DE')} ${fmtYMD(x)}`;
+    return `${x.toLocaleDateString('en-GB')} ${fmtYMD(x)}`;
   };
   const haystack = [
     String(q.nr ?? ''),
@@ -2250,7 +2275,10 @@ function showEditor() {
     <td>${escapeHTML(q.nr ?? '')}</td>
     <td>${escapeHTML(q.topic ?? '')}</td>
     <td>${stripHTML(q.text ?? '')}</td>
-    <td>${escapeHTML(q.difficulty ?? '')}</td>
+    <td>${(() => {
+      const d = q.difficulty;
+      return escapeHTML(d === 'leicht' ? 'easy' : d === 'schwer' ? 'hard' : (d || ''));
+    })()}</td>
     <td>${q.progress||0}</td>
     <td style="font-size:0.9em;">${lastAnsweredFormatted}</td>
   </tr>`;
@@ -2270,7 +2298,7 @@ function showEditor() {
 }
 
 async function deleteQuestion(idx) {
-  if(await confirm("Soll diese Frage wirklich gelöscht werden?")) {
+  if(await confirm("Do you really want to delete this question?")) {
     questions.splice(idx,1);
     saveQuestions();
     showEditor();
@@ -2278,12 +2306,12 @@ async function deleteQuestion(idx) {
 }
 
 async function deleteAllQuestions() {
-  if(await confirm("⚠️ WARNUNG: Alle lokalen Fragen werden unwiderruflich gelöscht!\n\nMöchten Sie wirklich ALLE Fragen löschen?")) {
-    if(await confirm("🔴 LETZTE WARNUNG: Dieser Vorgang kann nicht rückgängig gemacht werden!\n\nAlle " + questions.length + " Fragen werden gelöscht. Fortfahren?")) {
+  if(await confirm("⚠️ WARNING: All local questions will be permanently deleted!\n\nDo you really want to delete ALL questions?")) {
+    if(await confirm("🔴 FINAL WARNING: This operation cannot be undone!\n\nAll " + questions.length + " questions will be deleted. Proceed?")) {
       questions = [];
       saveQuestions();
       showEditor();
-      await alert("✅ Alle Fragen wurden gelöscht.");
+      await alert("✅ All questions have been deleted.");
     }
   }
 }
@@ -2291,10 +2319,10 @@ async function deleteAllQuestions() {
 async function exportQuestions() {
   loadQuestions();
   if(questions.length === 0) {
-    await alert("Keine Fragen zum Exportieren vorhanden!");
+    await alert("No questions available to export!");
     return;
   }
-  const header = ['Lfd Nummer','Thema','Frage','Auswahlantworten','Richtige Antworten','Kommentar','Fortschritt','Schwierigkeit','Erstellt am','Zuletzt geändert','Zuletzt beantwortet','ID'];
+  const header = ['No.','Topic','Question','Answers','Correct answers','Comment','Progress','Difficulty','Created at','Last modified','Last answered','ID'];
   const rows = [header];
   for (const q of questions) {
     const answers = (q.answers || []).map(stripHTML);
@@ -2320,7 +2348,7 @@ async function exportQuestions() {
   XLSX.utils.book_append_sheet(wb, ws, 'Fragen');
   const filename = `Quiz_Export_${new Date().toISOString().split('T')[0]}.xlsx`;
   XLSX.writeFile(wb, filename);
-  await alert(`✅ Export erfolgreich!\n${questions.length} Fragen wurden als "${filename}" gespeichert.`);
+  await alert(`✅ Export successful!\n${questions.length} questions have been saved as "${filename}".`);
 }
 
 /* ===== Export mit Optionen =====
@@ -2335,19 +2363,19 @@ async function exportQuestions() {
 function showExport() {
   loadQuestions();
   if (questions.length === 0) {
-    alert("Keine Fragen zum Exportieren vorhanden!");
+    alert("No questions available to export!");
     return;
   }
   let html = `<h3>Export</h3>
     <div style="margin-bottom:12px;">
-      <label><input type="checkbox" id="export-formatting" checked> Formatierung beibehalten</label>
+      <label><input type="checkbox" id="export-formatting" checked> Keep formatting</label>
     </div>
     <div style="margin-bottom:12px;">
       <label><input type="radio" name="export-type" value="excel" checked> Excel (.xlsx)</label>
       <label style="margin-left:12px;"><input type="radio" name="export-type" value="json"> JSON (.json)</label>
     </div>
-    <button type="button" onclick="performExport()">Exportieren</button>
-    <button type="button" onclick="showEditor()">Abbruch</button>`;
+    <button type="button" onclick="performExport()">Export</button>
+    <button type="button" onclick="showEditor()">Cancel</button>`;
   const importer = document.getElementById('importer');
   importer.innerHTML = html;
   showOnly('importer');
@@ -2368,7 +2396,7 @@ async function performExport() {
 
 async function exportQuestionsExcel(keepFormatting) {
   loadQuestions();
-  const header = ['Lfd Nummer','Thema','Frage','Auswahlantworten','Richtige Antworten','Kommentar','Fortschritt','Schwierigkeit','Erstellt am','Zuletzt geändert','Zuletzt beantwortet','ID'];
+  const header = ['No.','Topic','Question','Answers','Correct answers','Comment','Progress','Difficulty','Created at','Last modified','Last answered','ID'];
   const rows = [header];
   for (const q of questions) {
     const answers = (q.answers || []).map(ans => keepFormatting ? sanitizeHTML(ans || '') : stripHTML(ans || ''));
@@ -2399,8 +2427,8 @@ async function exportQuestionsExcel(keepFormatting) {
   const filename = `Quiz_Export_${today}_${nextVersion}.xlsx`;
   XLSX.writeFile(wb, filename);
   // Update dataset info to new export
-  updateDatasetInfo(filename, String(nextVersion), new Date().toLocaleDateString('de-DE'));
-  await alert(`✅ Export erfolgreich!\n${questions.length} Fragen wurden als "${filename}" gespeichert.`);
+  updateDatasetInfo(filename, String(nextVersion), new Date().toLocaleDateString('en-GB'));
+  await alert(`✅ Export successful!\n${questions.length} questions have been saved as "${filename}".`);
 }
 
 async function exportQuestionsJSON(keepFormatting) {
@@ -2436,16 +2464,16 @@ async function exportQuestionsJSON(keepFormatting) {
   link.click();
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
-  updateDatasetInfo(filename, String(nextVersion), new Date().toLocaleDateString('de-DE'));
-  await alert(`✅ Export erfolgreich!\n${questions.length} Fragen wurden als "${filename}" gespeichert.`);
+  updateDatasetInfo(filename, String(nextVersion), new Date().toLocaleDateString('en-GB'));
+  await alert(`✅ Export successful!\n${questions.length} questions have been saved as "${filename}".`);
 }
 
 async function resetProgress() {
-  if(await confirm("⚠️ WARNUNG: Der Fortschritt und alle 'Zuletzt beantwortet' Daten aller Fragen werden auf Null gesetzt!\n\nFortfahren?")) {
+  if(await confirm("⚠️ WARNING: Progress and all 'last answered' dates of all questions will be reset to zero!\n\nProceed?")) {
     questions.forEach(q => { q.progress = 0; q.lastAnswered = null; q.history = []; });
     saveQuestions();
     showEditor();
-    await alert("✅ Fortschritt aller Fragen und History wurden zurückgesetzt.");
+    await alert("✅ Progress and history of all questions have been reset.");
   }
 }
 
@@ -2456,40 +2484,40 @@ function showEditDialog(q, idx) {
 
   const html = `
     <div class="modal-header" id="modal-header">
-      <h4 style="margin:0;">${idx>=0?'Frage bearbeiten':'Neue Frage'}</h4>
+      <h4 style="margin:0;">${idx>=0?'Edit question':'New question'}</h4>
     </div>
     <div>
       <input type="hidden" id="qid" value="${q.id || ''}">
-      <label>Lfd.Nr.: <input type="number" id="nr" value="${q.nr||''}" style="width: 100px;"></label><br>
-      <label>Thema: <input id="topic" list="themenlist" value="${escapeHTML(q.topic||'')}" style="width:300px;">
+      <label>No.: <input type="number" id="nr" value="${q.nr||''}" style="width: 100px;"></label><br>
+      <label>Topic: <input id="topic" list="themenlist" value="${escapeHTML(q.topic||'')}" style="width:300px;">
         <datalist id="themenlist">${themenOpt}</datalist></label><br>
 
-      <div style="margin-top:8px;font-weight:600">Fragetext</div>
+      <div style="margin-top:8px;font-weight:600">Question text</div>
       
       <div id="qtext">${renderHTML(q.text||'')}</div>
 
-      <label style="display:block;margin-top:12px;">Schwierigkeit:
+      <label style="display:block;margin-top:12px;">Difficulty:
         <!-- Die ID des Schwierigkeits-Selects wird umbenannt, um Kollisionen
              mit dem Quiz-Filter (#qdifficulty) zu vermeiden. -->
         <select id="ed-qdifficulty">
-          <option value="leicht" ${q.difficulty==='leicht'?'selected':''}>leicht</option>
-          <option value="schwer" ${q.difficulty==='schwer'?'selected':''}>schwer</option>
+          <option value="leicht" ${q.difficulty==='leicht'?'selected':''}>easy</option>
+          <option value="schwer" ${q.difficulty==='schwer'?'selected':''}>hard</option>
         </select>
       </label>
-      <label>Fortschritt: <input type="number" id="qprogress" min="0" step="1" value="${q.progress || 0}" style="width: 100px;"></label><br>
+      <label>Progress: <input type="number" id="qprogress" min="0" step="1" value="${q.progress || 0}" style="width: 100px;"></label><br>
 
-      <div style="margin-top:10px;">Auswahlantworten <span style="opacity:.8">(mindestens eine Lösung markieren)</span></div>
+      <div style="margin-top:10px;">Answer options <span style="opacity:.8">(select at least one correct answer)</span></div>
       <div id="answers"></div>
-      <button type="button" id="add-ans-btn" title="Antwort hinzufügen" onclick="addAnswerField()">➕ Antwort</button>
+      <button type="button" id="add-ans-btn" title="Add answer" onclick="addAnswerField()">➕ Add answer</button>
       
-      <div style="margin-top:12px;font-weight:600">Kommentar</div>
+      <div style="margin-top:12px;font-weight:600">Comment</div>
       <div id="qcomment" style="min-height:220px; max-height:60vh; overflow:auto;">
         ${renderHTML(q.comment||'')}
         </div>
 
       <div class="modal-actions">
-        <button type="button" onclick="saveEdit(${idx})">Speichern</button>
-        <button type="button" onclick="closeModal()">Abbruch</button>
+        <button type="button" onclick="saveEdit(${idx})">Save</button>
+        <button type="button" onclick="closeModal()">Cancel</button>
       </div>
     </div>`;
 
@@ -2589,14 +2617,14 @@ window.editQuestion = function(idx){ showEditDialog(questions[idx], idx); };
 
 /* ===== Import ===== */
 function showImport() {
-  let html = `<h3>Import aus Excel/CSV-Datei</h3>
+  let html = `<h3>Import from Excel/CSV file</h3>
     <input type="file" id="file-input" accept=".xlsx,.xls,.json"><br>
-    <button type="button" onclick="showEditor()">Zurück</button>
+    <button type="button" onclick="showEditor()">Back</button>
     <div style="font-size:0.95em; opacity:0.8; margin: 16px 0;">
-      <strong>Benötigte Spalten:</strong> Lfd Nummer, Thema, Frage, Auswahlantworten, Richtige Antworten, Kommentar, Fortschritt, Schwierigkeit<br>
-      <strong>Optionale Spalten:</strong> Erstellt am, Zuletzt geändert, Zuletzt beantwortet, ID<br>
-      Antworten und Lösungen einzeln (Zeilenumbruch in Zellen).<br>
-      <strong>Datumsformate werden automatisch erkannt (z.B. dd.mm.yyyy → yyyy-mm-dd).</strong>
+      <strong>Required columns:</strong> No., Topic, Question, Answers, Correct answer(s), Comment, Progress, Difficulty<br>
+      <strong>Optional columns:</strong> Created at, Last modified, Last answered, ID<br>
+      Enter each answer and solution on a separate line within its cell.<br>
+      <strong>Date formats are recognized automatically (e.g. dd.mm.yyyy → yyyy-mm-dd).</strong>
     </div>
     <div id="import-preview"></div>`;
   document.getElementById('importer').innerHTML = html;
@@ -2618,7 +2646,7 @@ function handleImport(e) {
   const verMatch = name.match(/_(\d+)(?=\.(xlsx|xls|json))/);
   const version = verMatch ? verMatch[1] : '';
   const lastModDate = new Date(f.lastModified);
-  updateDatasetInfo(name, version, lastModDate.toLocaleDateString('de-DE'));
+  updateDatasetInfo(name, version, lastModDate.toLocaleDateString('en-GB'));
 
   // Wenn eine JSON‑Datei importiert wird, parse sie als Text
   const lowerName = name.toLowerCase();
@@ -2629,7 +2657,7 @@ function handleImport(e) {
         const jsonData = JSON.parse(evt.target.result);
         handleJsonImport(jsonData);
       } catch(err) {
-        alert('Ungültige JSON-Datei.');
+        alert('Invalid JSON file.');
         console.error(err);
       }
     };
@@ -2771,7 +2799,7 @@ function handleJsonImport(data) {
     showImportPreview(previewList, invalidCount, 0, []);
   } catch(err) {
     console.error(err);
-    alert('Fehler beim Verarbeiten der JSON‑Daten.');
+    alert('Error processing the JSON data.');
   }
 }
 
@@ -2779,7 +2807,7 @@ function showImportPreview(list, invalidCount, partialMatchCount, partialMatchDe
   let html = `<div class="scroll-table-container" style="height:40vh;">
     <table>
     <thead>
-      <tr><th>LfdNr</th><th>Thema</th><th>Frage</th><th>Antworten</th><th>Lösung(en)</th><th>Kommentar</th><th>Schwierigkeit</th></tr>
+      <tr><th>No.</th><th>Topic</th><th>Question</th><th>Answers</th><th>Correct answer(s)</th><th>Comment</th><th>Difficulty</th></tr>
     </thead>
     <tbody>`;
   list.forEach(q=>{
@@ -2795,31 +2823,31 @@ function showImportPreview(list, invalidCount, partialMatchCount, partialMatchDe
     </tr>`;
   });
   html += `</tbody></table></div><div style="margin-top:16px;">`;
-  if(invalidCount > 0) html += `<div style="font-weight:bold; margin-bottom:12px;">⚠️ ${invalidCount} Fragen enthalten keine Lösung und sind gelb markiert!</div>`;
+  if(invalidCount > 0) html += `<div style="font-weight:bold; margin-bottom:12px;">⚠️ ${invalidCount} questions have no solution and are highlighted in yellow!</div>`;
   if(partialMatchCount > 0) {
-    html += `<div style="font-weight:bold; margin-bottom:12px;">🔸 ${partialMatchCount} Fragen mit unvollständig erkannten Lösungen (orange markiert):</div>
+    html += `<div style="font-weight:bold; margin-bottom:12px;">🔸 ${partialMatchCount} questions with partially recognized solutions (highlighted in orange):</div>
       <div style="background:color-mix(in srgb, Field 85%, yellow 15%); padding:12px; border-radius:6px; margin-bottom:12px; font-size:0.9em;">`;
     partialMatchDetails.forEach(d=>{
       html += `<div style="margin-bottom:8px;">
-        <strong>Nr. ${d.nr}:</strong> "${escapeHTML(d.question)}"<br>
-        <span style="opacity:0.8;">Erwartet: ${d.totalSolutions} Lösungen, Erkannt: ${d.foundSolutions}</span><br>
-        <span style="opacity:0.7;">Nicht erkannt: ${d.unmatchedSolutions.map(escapeHTML).join(', ')}</span>
+        <strong>No. ${d.nr}:</strong> "${escapeHTML(d.question)}"<br>
+        <span style="opacity:0.8;">Expected: ${d.totalSolutions} solutions, Recognized: ${d.foundSolutions}</span><br>
+        <span style="opacity:0.7;">Not recognized: ${d.unmatchedSolutions.map(escapeHTML).join(', ')}</span>
       </div>`;
     });
     html += `</div>`;
   }
-  html += `<div style="font-weight:bold;">📊 Datumsformate wurden normalisiert.</div>
-      <p style="margin-top:12px;">Möchtest Du diese <strong>${list.length}</strong> Fragen übernehmen?</p>
+  html += `<div style="font-weight:bold;">📊 Date formats have been normalized.</div>
+      <p style="margin-top:12px;">Would you like to import these <strong>${list.length}</strong> questions?</p>
     </div>`;
 
   const safeJSON = JSON.stringify(list).replace(/'/g,"&#39;").replace(/"/g,"&quot;");
   let conflictCount = invalidCount + partialMatchCount;
   if(conflictCount > 0) {
-    html += `<button type="button" onclick='startConflictCorrections(${safeJSON})'>Konflikte korrigieren (${conflictCount})</button>`;
+    html += `<button type="button" onclick='startConflictCorrections(${safeJSON})'>Resolve conflicts (${conflictCount})</button>`;
   } else {
-    html += `<button type="button" onclick='confirmImport(${safeJSON})'>Alle übernehmen</button>`;
+    html += `<button type="button" onclick='confirmImport(${safeJSON})'>Import all</button>`;
   }
-  html += `<button type="button" onclick="showImport()">Abbruch</button>`;
+  html += `<button type="button" onclick="showImport()">Cancel</button>`;
   document.getElementById('import-preview').innerHTML = html;
 }
 
@@ -2834,28 +2862,28 @@ function showConflictCorrectionDialog(conflictList, startIdx, originalImportList
     </div>`).join('');
   let unmatchedHtml = q.unmatchedSolutions && q.unmatchedSolutions.length > 0
     ? `<div style="margin-bottom:12px; padding:8px; background:color-mix(in srgb, Field 70%, orange 30%); border-radius:4px;">
-        <strong>Nicht zugeordnete Lösungen:</strong><br>${q.unmatchedSolutions.map(escapeHTML).join('<br>')}
+        <strong>Unassigned solutions:</strong><br>${q.unmatchedSolutions.map(escapeHTML).join('<br>')}
        </div>` : '';
-  let dlgHtml = `<div class="modal-header"><h4 style="margin:0;">Konfliktkorrektur - Frage Nr. ${q.nr} (${startIdx+1}/${conflictList.length})</h4></div>
+  let dlgHtml = `<div class="modal-header"><h4 style="margin:0;">Conflict resolution – Question No. ${q.nr} (${startIdx+1}/${conflictList.length})</h4></div>
     <div style="max-height:70vh; overflow-y:auto;">
       <div style="margin-bottom:16px;">
-        <strong>Fragetext:</strong><br>
+        <strong>Question text:</strong><br>
         <div style="padding:8px; background:color-mix(in srgb, Field 90%, blue 10%); border-radius:4px; margin-top:4px;">${escapeHTML(q.text)}</div>
       </div>
       ${unmatchedHtml}
       <div style="margin-bottom:16px;">
-        <strong>Antworten bearbeiten (Häkchen = richtige Lösung):</strong><br>
+        <strong>Edit answers (checkbox = correct answer):</strong><br>
         <div style="margin-top:8px;">${ansHtml}</div>
-        <button type="button" onclick="addConflictAnswer()" style="margin-top:8px; font-size:0.9em;">➕ Antwort hinzufügen</button>
+        <button type="button" onclick="addConflictAnswer()" style="margin-top:8px; font-size:0.9em;">➕ Add answer</button>
       </div>
       <div style="margin-bottom:16px;">
-        <strong>Kommentar:</strong><br>
+        <strong>Comment:</strong><br>
         <textarea id="confcomment" style="width:98%; height:60px; resize:vertical; margin-top:4px;">${escapeHTML(q.comment||'')}</textarea>
       </div>
       <div style="border-top:1px solid ButtonBorder; padding-top:16px;">
-        <button type="button" onclick="acceptCorrection(${startIdx})">✅ Übernehmen & Weiter</button>
-        <button type="button" onclick="skipCorrection(${startIdx})">⏭️ Überspringen & Weiter</button>
-        <button type="button" onclick="cancelConflictCorrection()">❌ Abbrechen</button>
+        <button type="button" onclick="acceptCorrection(${startIdx})">✅ Accept & Next</button>
+        <button type="button" onclick="skipCorrection(${startIdx})">⏭️ Skip & Next</button>
+        <button type="button" onclick="cancelConflictCorrection()">❌ Cancel</button>
       </div>
     </div>`;
   document.getElementById('preview-content').innerHTML = dlgHtml;
@@ -2884,7 +2912,7 @@ async function acceptCorrection(idx) {
     if(txt.length>0){ newAns.push(txt); if(document.getElementById('confchk-'+i).checked) newSol.push(newAns.length-1); }
     i++;
   }
-  if(newSol.length === 0) { await alert('⚠️ Mindestens eine Antwort muss als Lösung markiert werden!'); return; }
+  if(newSol.length === 0) { await alert('⚠️ At least one answer must be marked as correct!'); return; }
   q.answers = newAns; q.solution = newSol; q.comment = document.getElementById('confcomment').value.trim();
   q.markMissing = false; q.hasPartialMatch = false;
   let idxOrig = window._originalImportList.findIndex(qq => qq.nr === q.nr);
@@ -2903,98 +2931,148 @@ function startConflictCorrections(importListStr) {
   if(conflicts.length === 0) { confirmImport(JSON.stringify(importList)); return; }
   showConflictCorrectionDialog(conflicts, 0, importList);
 }
-async function confirmImport(strList) {
-  // 1) Liste parsen
-  let list = typeof strList === 'string'
-    ? JSON.parse(strList.replace(/&quot;/g,'"').replace(/&#39;/g,"'"))
-    : strList;
 
+/*
+ * Shows a detailed table comparing imported questions with existing ones when their IDs collide.
+ * Each conflicting entry is presented as a set of rows where the left column lists the field name,
+ * the second column shows the value currently stored in the database, and the third column shows
+ * the value from the import. Differences are highlighted. A dropdown in the fourth column lets
+ * the user decide whether to skip the import or replace the existing question. When the user
+ * clicks "Apply", the selected actions are executed and the editor is shown.
+ */
+function showDuplicateTable(fullList, collisions) {
   loadQuestions();
+  window._dupFullList = fullList;
+  window._dupCollisions = collisions;
+  const container = document.getElementById('importer');
+  let html = `<h3>Duplicate ID conflicts</h3>`;
+  html += `<div class="scroll-table-container" style="max-height:55vh;">
+    <table>
+    <thead>
+      <tr><th style="min-width:40px;">No.</th><th>Field</th><th>Existing</th><th>Import</th><th style="min-width:120px;">Action</th></tr>
+    </thead><tbody>`;
+  collisions.forEach((imp, idx) => {
+    const existing = questions.find(q => q.id === imp.id) || {};
+    const fields = ['nr','topic','text','answers','solution','comment','difficulty'];
+    fields.forEach((f, fi) => {
+      html += `<tr${fi === 0 ? ' style="border-top:2px solid ButtonBorder;"' : ''}>`;
+      if (fi === 0) {
+        html += `<td rowspan="${fields.length}">${escapeHTML(String(imp.nr || ''))}</td>`;
+      }
+      const fieldNames = {
+        nr: 'No.',
+        topic: 'Topic',
+        text: 'Question',
+        answers: 'Answers',
+        solution: 'Correct answer(s)',
+        comment: 'Comment',
+        difficulty: 'Difficulty'
+      };
+      html += `<td>${fieldNames[f] || f}</td>`;
+      let oldVal = existing[f];
+      let newVal = imp[f];
+      // Format arrays for display
+      const formatVal = v => {
+        if (Array.isArray(v)) {
+          return v.map(x => escapeHTML(String(x))).join('<br>');
+        }
+        return escapeHTML(v == null ? '' : String(v));
+      };
+      let oldDisplay = '';
+      let newDisplay = '';
+      if (f === 'answers') {
+        oldDisplay = Array.isArray(oldVal) ? oldVal.map(ans => escapeHTML(ans)).join('<br>') : '';
+        newDisplay = Array.isArray(newVal) ? newVal.map(ans => escapeHTML(ans)).join('<br>') : '';
+      } else if (f === 'solution') {
+        // translate indices to answer texts
+        oldDisplay = Array.isArray(oldVal) && Array.isArray(existing.answers)
+          ? oldVal.map(ix => escapeHTML(existing.answers[ix] || '')).join('<br>') : '';
+        newDisplay = Array.isArray(newVal) && Array.isArray(imp.answers)
+          ? newVal.map(ix => escapeHTML(imp.answers[ix] || '')).join('<br>') : '';
+      } else {
+        oldDisplay = formatVal(oldVal);
+        newDisplay = formatVal(newVal);
+      }
+      const diffClassOld = oldDisplay !== newDisplay ? 'diff-old' : '';
+      const diffClassNew = oldDisplay !== newDisplay ? 'diff-new' : '';
+      html += `<td class="${diffClassOld}">${oldDisplay}</td>`;
+      html += `<td class="${diffClassNew}">${newDisplay}</td>`;
+      if (fi === 0) {
+        html += `<td rowspan="${fields.length}"><select id="dup-action-${idx}">
+          <option value="skip">Do not import</option>
+          <option value="replace">Import (replace)</option>
+        </select></td>`;
+      }
+      html += `</tr>`;
+    });
+  });
+  html += `</tbody></table></div>`;
+  html += `<div style="margin-top:16px; display:flex; gap:8px; flex-wrap:wrap;">
+    <button type="button" onclick="applyDuplicateActions()">Apply</button>
+    <button type="button" onclick="showImport()">Back</button>
+  </div>`;
+  container.innerHTML = html;
+  showOnly('importer');
+}
 
+/*
+ * Applies the actions selected in the duplicate conflict table. Questions marked as
+ * "replace" overwrite the existing entries, whereas those marked as "skip" are not
+ * imported. Questions without conflicts are imported as new. Progress and history
+ * of existing questions are preserved during replacements.
+ */
+function applyDuplicateActions() {
+  loadQuestions();
+  const fullList = window._dupFullList || [];
+  const collisions = window._dupCollisions || [];
   const byId = new Map(questions.map(q => [q.id, q]));
-  const existingNrs = new Set(questions.map(q => parseInt(q.nr)||0));
-
-  // 2) Vorab prüfen, wie viele IDs schon existieren (für Bestätigung)
-  const collisions = (list || []).filter(q => q && q.id && byId.has(q.id));
-  let doUpdate = true;
-
-  if (collisions.length > 0) {
-    // kleine Vorschau (max. 8 Einträge)
-    const sample = collisions.slice(0, 8).map(q =>
-      `• ${q.nr ?? '-'} | ${q.topic ?? ''} | ${(q.text || '').slice(0, 60)}`
-    ).join('\n');
-
-    const msg =
-`Es wurden ${collisions.length} Fragen mit bereits vorhandener ID gefunden.
-
-${sample}${collisions.length > 8 ? '\n…' : ''}
-
-Möchtest du diese vorhandenen Fragen AKTUALISIEREN?
-
-OK = aktualisieren
-Abbrechen = vorhandene überspringen (nur neue importieren)`;
-
-    doUpdate = await confirm(msg);
-  }
-
-  // 3) Import durchführen
-  let inserted = 0, updated = 0, skippedUpdates = 0;
-
-  for (const imp of list) {
+  const existingNrs = new Set(questions.map(q => parseInt(q.nr) || 0));
+  let inserted = 0, updated = 0, skipped = 0;
+  // Create a map of collision ids to their selected action
+  const actions = {};
+  collisions.forEach((imp, idx) => {
+    const sel = document.getElementById(`dup-action-${idx}`);
+    actions[imp.id] = sel ? sel.value : 'skip';
+  });
+  for (const imp of fullList) {
     const q = { ...imp };
-
-    // ID & History absichern
     if (!q.id) q.id = generateId();
     if (!Array.isArray(q.history)) q.history = [];
-
     if (byId.has(q.id)) {
-      // ——— Update-Fall ———
-      if (!doUpdate) { skippedUpdates++; continue; }
-
-      const idx = questions.findIndex(x => x.id === q.id);
-      if (idx >= 0) {
-        const existing = questions[idx];
-
-        // Lfd.-Nr. beim Update NICHT ändern
-        const preservedNr = existing.nr;
-
-        // Fortschritt/History standardmäßig behalten (Import überschreibt Inhalte, aber nicht den Lernstand)
-        const merged = {
-          ...existing,
-          // Inhaltliche Felder aus dem Import:
-          topic: (q.topic ?? existing.topic) || '',
-          text: (q.text ?? existing.text) || '',
-          answers: (Array.isArray(q.answers) && q.answers.length ? q.answers : existing.answers) || [],
-          solution: (Array.isArray(q.solution) && q.solution.length ? q.solution : existing.solution) || [],
-          comment: (q.comment !== undefined ? q.comment : existing.comment) || '',
-          difficulty: (q.difficulty || existing.difficulty || 'leicht'),
-
-          // Lernstand & Historie beibehalten
-          progress: (typeof existing.progress === 'number' ? existing.progress : 0),
-          lastAnswered: existing.lastAnswered || null,
-          history: Array.isArray(existing.history) ? existing.history : [],
-
-          // Nummer & IDs festhalten
-          id: existing.id,
-          nr: preservedNr,
-
-          // Timestamps
-          createdAt: existing.createdAt || q.createdAt || new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        };
-
-        questions[idx] = merged;
-        updated++;
+      // update or skip based on selection
+      if (actions[q.id] === 'replace') {
+        const idx = questions.findIndex(x => x.id === q.id);
+        if (idx >= 0) {
+          const existing = questions[idx];
+          const preservedNr = existing.nr;
+          const merged = {
+            ...existing,
+            topic: (q.topic ?? existing.topic) || '',
+            text: (q.text ?? existing.text) || '',
+            answers: (Array.isArray(q.answers) && q.answers.length ? q.answers : existing.answers) || [],
+            solution: (Array.isArray(q.solution) && q.solution.length ? q.solution : existing.solution) || [],
+            comment: (q.comment !== undefined ? q.comment : existing.comment) || '',
+            difficulty: (q.difficulty || existing.difficulty || 'leicht'),
+            progress: (typeof existing.progress === 'number' ? existing.progress : 0),
+            lastAnswered: existing.lastAnswered || null,
+            history: Array.isArray(existing.history) ? existing.history : [],
+            id: existing.id,
+            nr: preservedNr,
+            createdAt: existing.createdAt || q.createdAt || new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          };
+          questions[idx] = merged;
+          updated++;
+        }
+      } else {
+        skipped++;
       }
     } else {
-      // ——— Neu-Fall ———
-      // Lfd.-Nr. eindeutig vergeben
+      // insert new question
       let nr = parseInt(q.nr) || 1;
       while (existingNrs.has(nr)) nr++;
       existingNrs.add(nr);
       q.nr = nr;
-
-      // neue Frage übernehmen
       questions.push({
         id: q.id,
         nr: q.nr,
@@ -3013,15 +3091,79 @@ Abbrechen = vorhandene überspringen (nur neue importieren)`;
       inserted++;
     }
   }
+  saveQuestions();
+  // Clear temporary globals
+  window._dupFullList = null;
+  window._dupCollisions = null;
+  showEditor();
+  alert(
+    '✅ Import completed.\n' +
+    'New: ' + inserted + '\n' +
+    'Updated: ' + updated + '\n' +
+    (skipped ? 'Skipped: ' + skipped + '\n' : '')
+  );
+}
+async function confirmImport(strList) {
+  // 1) Liste parsen
+  let list = typeof strList === 'string'
+    ? JSON.parse(strList.replace(/&quot;/g,'"').replace(/&#39;/g,"'"))
+    : strList;
 
+  loadQuestions();
+
+  const byId = new Map(questions.map(q => [q.id, q]));
+  const existingNrs = new Set(questions.map(q => parseInt(q.nr)||0));
+
+  // 2) Check for collisions (existing IDs)
+  const collisions = (list || []).filter(q => q && q.id && byId.has(q.id));
+  if (collisions.length > 0) {
+    // Show detailed duplicate resolution UI instead of a simple confirmation
+    showDuplicateTable(list, collisions);
+    return;
+  }
+
+  // 3) Import directly if there are no collisions
+  let inserted = 0;
+  for (const imp of list) {
+    const q = { ...imp };
+
+    // ensure id and history
+    if (!q.id) q.id = generateId();
+    if (!Array.isArray(q.history)) q.history = [];
+
+    if (byId.has(q.id)) {
+      // Should not happen because we returned above when collisions exist
+      continue;
+    }
+
+    // assign unique running number
+    let nr = parseInt(q.nr) || 1;
+    while (existingNrs.has(nr)) nr++;
+    existingNrs.add(nr);
+    q.nr = nr;
+
+    questions.push({
+      id: q.id,
+      nr: q.nr,
+      topic: q.topic || '',
+      text: q.text || '',
+      answers: Array.isArray(q.answers) ? q.answers : [],
+      solution: Array.isArray(q.solution) ? q.solution : [],
+      comment: q.comment || '',
+      difficulty: q.difficulty || 'leicht',
+      progress: parseInt(q.progress) || 0,
+      lastAnswered: q.lastAnswered || null,
+      history: Array.isArray(q.history) ? q.history : [],
+      createdAt: q.createdAt || new Date().toISOString(),
+      updatedAt: q.updatedAt || new Date().toISOString(),
+    });
+    inserted++;
+  }
   saveQuestions();
   showEditor();
-
   await alert(
-    `✅ Import abgeschlossen.\n` +
-    `Neu: ${inserted}\n` +
-    `Aktualisiert: ${updated}\n` +
-    (skippedUpdates ? `Übersprungen (wegen Abbrechen): ${skippedUpdates}\n` : ``)
+    `✅ Import completed.\n` +
+    `New: ${inserted}`
   );
 }
 
@@ -3030,40 +3172,40 @@ Abbrechen = vorhandene überspringen (nur neue importieren)`;
 function showQuizInit() {
   loadQuestions();
   let topics = [...new Set(questions.map(q=>q.topic).filter(Boolean))];
-  let html = `<h3>Quiz starten</h3>
+  let html = `<h3>Start Quiz</h3>
     <div class="quiz-top">
-      <label>Thema: 
+      <label>Topic: 
         <select id="qtopic">
-          <option value="">Alle</option>
+          <option value="">All</option>
           ${topics.map(t=>`<option>${escapeHTML(t)}</option>`).join('')}
         </select>
       </label>
-      <label>Schwierigkeit: 
+      <label>Difficulty: 
         <select id="qdifficulty">
-          <option value="">Alle</option>
-          <option value="leicht">leicht</option>
-          <option value="schwer">schwer</option>
+          <option value="">All</option>
+          <option value="leicht">easy</option>
+          <option value="schwer">hard</option>
         </select>
       </label>
-      <label>Anzahl: 
+      <label>Number: 
         <select id="qcount">
           <option value="10">10</option>
           <option value="20">20</option>
           <option value="30">30</option>
           <option value="40">40</option>
           <option value="60">60</option>
-          <option value="all" selected>Alle</option>
+          <option value="all" selected>All</option>
         </select>
       </label>
     </div>
     <!-- Suchleiste für Quiz -->
     <div class="quiz-searchbar" style="display:flex; gap:8px; align-items:center; margin:12px 0;">
-      <input id="quiz-search" type="text" placeholder="Fragen suchen …" style="flex:1; min-width:200px;" value="${escapeHTML(quizSearch.text || '')}">
-      <button type="button" id="quiz-search-clear" title="Suche löschen">✕</button>
+      <input id="quiz-search" type="text" placeholder="Search questions …" style="flex:1; min-width:200px;" value="${escapeHTML(quizSearch.text || '')}">
+      <button type="button" id="quiz-search-clear" title="Clear search">✕</button>
       <span id="quiz-search-count" style="opacity:.75; font-size:.9em;"></span>
     </div>
-    <button type="button" onclick="startQuiz()">Quiz starten</button>
-    <button type="button" onclick="location.reload()">Zurück zum Dashboard</button>`;
+    <button type="button" onclick="startQuiz()">Start Quiz</button>
+    <button type="button" onclick="location.reload()">Back to dashboard</button>`;
   document.getElementById('main').innerHTML = html;
   showOnly('main');
   // Suchfeld initialisieren und Treffer anzeigen
@@ -3085,7 +3227,7 @@ async function startQuiz() {
     (!dif   || q.difficulty === dif) &&
     (!search || matchesQuizSearch(q, search))
   );
-  if (filtered.length < 1) { await alert('Keine Fragen vorhanden für die Auswahl!'); return; }
+  if (filtered.length < 1) { await alert('No questions available for the selection!'); return; }
 
   const sorted = filtered
     .map(q => ({
@@ -3116,26 +3258,28 @@ async function startQuiz() {
 function showQuizCard() {
   if (quizIdx >= quizList.length) { endQuiz(); return; }
   if (!quizList || !Array.isArray(quizList) || quizList.length === 0) {
-    console.error('quizList ist nicht verfügbar');
-    alert('Fehler: Quiz-Liste nicht geladen. Bitte starten Sie das Quiz neu.');
+    console.error('quizList is not available');
+    alert('Error: quiz list not loaded. Please restart the quiz.');
     hideAll(); return;
   }
 
   current = quizList[quizIdx];
   if (!current || !current.answers || !Array.isArray(current.answers)) {
-    console.error('Aktuelle Frage ist ungültig:', current);
-    alert('Fehler: Frage konnte nicht geladen werden. Bitte starten Sie das Quiz neu.');
+    console.error('Current question is invalid:', current);
+    alert('Error: question could not be loaded. Please restart the quiz.');
     hideAll(); return;
   }
 
   quizAnsOrder = Array.from(current.answers.keys()).sort(() => Math.random() - 0.5);
 
   const q = current, num = quizIdx + 1;
+  // translate internal difficulty values ("leicht" and "schwer") to English labels
+  const diffLabel = q.difficulty === 'leicht' ? 'easy' : q.difficulty === 'schwer' ? 'hard' : (q.difficulty || '-');
   let html = `<div style="font-size:1.2em; margin-bottom:8px; white-space:nowrap;">
-    <strong>Lfd. Nr:</strong> ${escapeHTML(q.nr || '-')} |
-    <strong>Thema:</strong> ${escapeHTML(q.topic || '-')} |
-    <strong>Schwierigkeit:</strong> ${escapeHTML(q.difficulty || '-')} |
-    <strong>Frage</strong> ${num}/${quizList.length}
+    <strong>No.:</strong> ${escapeHTML(q.nr || '-')} |
+    <strong>Topic:</strong> ${escapeHTML(q.topic || '-')} |
+    <strong>Difficulty:</strong> ${escapeHTML(diffLabel)} |
+    <strong>Question</strong> ${num}/${quizList.length}
   </div>
   <h4 style="font-size: 1.2em;">${renderHTML(q.text)}</h4>
   <div id="qform">`;
@@ -3145,20 +3289,20 @@ function showQuizCard() {
       </label>`;
   });
   html += `</div>
-    <button type="button" id="check-btn" onclick="checkQuizAnswer()">Prüfen</button>
-    <button type="button" onclick="previousQuizQuestion()" ${quizIdx === 0 ? 'disabled' : ''}>← Vorherige Frage</button>
-    <button type="button" onclick="nextQuizQuestion()">Nächste Frage →</button>
-    <button type="button" onclick="editCurrentQuestion()">✏️ Bearbeiten</button>
-    <button type="button" onclick="endQuiz()">Abbruch</button>
+    <button type="button" id="check-btn" onclick="checkQuizAnswer()">Check</button>
+    <button type="button" onclick="previousQuizQuestion()" ${quizIdx === 0 ? 'disabled' : ''}>← Previous question</button>
+    <button type="button" onclick="nextQuizQuestion()">Next question →</button>
+    <button type="button" onclick="editCurrentQuestion()">✏️ Edit</button>
+    <button type="button" onclick="endQuiz()">Cancel</button>
     <div id="result"></div>`;
 
   document.getElementById('quiz-card').innerHTML = html;
   {
     const progEl = document.getElementById('progress');
     if (progEl) {
-      // Zeige links den Fortschritt und rechts den Dateinamen sowie das letzte Änderungsdatum.
+      // Show progress on the left and the dataset file name and last modification date on the right.
       const fileInfo = (datasetName ? datasetName : '') + (datasetLastModified ? ' | ' + datasetLastModified : '');
-      progEl.innerHTML = `<span>Fortschritt: ${quizProg}/${quizList.length}</span><span>${fileInfo}</span>`;
+      progEl.innerHTML = `<span>Progress: ${quizProg}/${quizList.length}</span><span>${fileInfo}</span>`;
     }
   }
 
@@ -3172,7 +3316,7 @@ function previousQuizQuestion(){ if (quizIdx > 0) { quizIdx--; showQuizCard(); }
 function nextQuizQuestion(){ quizIdx++; showQuizCard(); }
 
 function editCurrentQuestion() {
-  if (!current) { alert('Keine Frage geladen.'); return; }
+  if (!current) { alert('No question loaded.'); return; }
   editContext = 'quiz';
   const questionIndex = questions.findIndex(q => q.id === current.id);
   if (questionIndex === -1) { alert('Frage konnte nicht in der Datenbank gefunden werden.'); return; }
@@ -3210,8 +3354,11 @@ async function saveEdit(idx) {
     }
   });
 
-  if (stripHTML(text).length === 0 || answers.length < 2) { await alert("Bitte Frage und mindestens 2 Auswahlantworten ausfüllen."); return; }
-  if (solution.length < 1) { await alert("Mindestens eine Antwort muss als Lösung markiert werden!"); return; }
+  if (stripHTML(text).length === 0 || answers.length < 2) {
+    await alert("Please enter the question and at least 2 answer options.");
+    return;
+  }
+  if (solution.length < 1) { await alert("At least one answer must be marked as correct!"); return; }
 
   let createdAt    = (idx >= 0 && questions[idx]) ? questions[idx].createdAt : new Date().toISOString();
   let lastAnswered = (idx >= 0 && questions[idx]) ? questions[idx].lastAnswered : null;
@@ -3244,7 +3391,7 @@ function checkQuizAnswer() {
   const checkBtnEl = document.getElementById('check-btn');
   if (checkBtnEl) { checkBtnEl.disabled = true; checkBtnEl.setAttribute('aria-disabled','true'); }
 
-  if (!current) { console.error('current ist null'); alert('Fehler: Quiz nicht richtig geladen.'); return; }
+  if (!current) { console.error('current is null'); alert('Error: quiz not loaded properly.'); return; }
 
   let q = questions.find(qq => qq.id === current.id) || current;
 
@@ -3252,7 +3399,10 @@ function checkQuizAnswer() {
   let solution = q.solution || [];
   let isCorrect = JSON.stringify(sel.slice().sort()) === JSON.stringify(solution.slice().sort());
 
-  let mainResult = isCorrect ? '<strong class="correct">✅ Richtig!</strong>' : '<strong class="wrong">❌ Falsch!</strong>';
+  // Build main result string with English messages
+  let mainResult = isCorrect
+    ? '<strong class="correct">✅ Correct!</strong>'
+    : '<strong class="wrong">❌ Incorrect!</strong>';
 
   if (isCorrect) {
     q.progress = (q.progress || 0) + 1;
@@ -3270,7 +3420,7 @@ function checkQuizAnswer() {
   // Anzeige der Lösung
   let solutionHtml = `
     <div style="display: flex; align-items: center; gap: 18px; margin-bottom: 12px;">
-      <span style="font-size: 1.1em; font-weight: bold; color: color-mix(in srgb, CanvasText 30%, blue 70%);">📋 Auflösung:</span>
+      <span style="font-size: 1.1em; font-weight: bold; color: color-mix(in srgb, CanvasText 30%, blue 70%);">📋 Explanation:</span>
       <span>${mainResult}</span>
     </div>`;
 
@@ -3282,13 +3432,13 @@ function checkQuizAnswer() {
     let displayText = '';
     let styleClass = '';
   if (isCorrectAnswer && wasSelected) {
-    displayText = `✅ ${renderHTML(q.answers[idx])} <em style="opacity: 0.8;">(richtig gewählt)</em>`;
+    displayText = `✅ ${renderHTML(q.answers[idx])} <em style="opacity: 0.8;">(correctly chosen)</em>`;
     styleClass = 'correct';
   } else if (isCorrectAnswer && !wasSelected) {
-    displayText = `✓ ${renderHTML(q.answers[idx])} <em style="opacity: 0.8;">(richtige Lösung, nicht gewählt)</em>`;
+    displayText = `✓ ${renderHTML(q.answers[idx])} <em style="opacity: 0.8;">(correct answer, not chosen)</em>`;
     styleClass = 'correct';
   } else if (!isCorrectAnswer && wasSelected) {
-    displayText = `❌ ${renderHTML(q.answers[idx])} <em style="opacity: 0.8;">(falsch gewählt)</em>`;
+    displayText = `❌ ${renderHTML(q.answers[idx])} <em style="opacity: 0.8;">(incorrectly chosen)</em>`;
     styleClass = 'wrong';
   } else {
   return;
@@ -3304,9 +3454,9 @@ function checkQuizAnswer() {
   let normalized = looksLikeHtml ? rawComment : rawComment.replace(/\n/g, '<br>');
   const commentHtml = `
     <div style="margin-top: 16px; padding: 12px; border-radius: 8px; border: 1px solid;">
-    <div style="font-size: 1.1em; font-weight: bold; margin-bottom: 12px; color: color-mix(in srgb, CanvasText 30%, blue 70%);">Kommentar:</div>
+    <div style="font-size: 1.1em; font-weight: bold; margin-bottom: 12px; color: color-mix(in srgb, CanvasText 30%, blue 70%);">Comment:</div>
     <div class="comment-body" style="margin-top: 12px; color: var(--text);">
-      ${hasContent ? renderHTML(normalized) : '<em>Kein Kommentar vorhanden.</em>'}
+      ${hasContent ? renderHTML(normalized) : '<em>No comment available.</em>'}
     </div>
   </div>`;
 
@@ -3319,34 +3469,33 @@ function checkQuizAnswer() {
   if (progEl) {
     // Zeige links den Fortschritt und rechts den Dateinamen sowie das letzte Änderungsdatum.
     const fileInfo = (datasetName ? datasetName : '') + (datasetLastModified ? ' | ' + datasetLastModified : '');
-    progEl.innerHTML = `<span>Fortschritt: ${quizProg}/${quizList.length}</span><span>${fileInfo}</span>`;
+    progEl.innerHTML = `<span>Progress: ${quizProg}/${quizList.length}</span><span>${fileInfo}</span>`;
   }
 }
 
 function endQuiz() {
   showOnly('main');
-  document.getElementById('main').innerHTML = `<h2>Das Quiz ist beendet.</h2>
-    <p>Dein Fortschritt: <strong>${quizProg}/${quizList.length}</strong></p>
-    <button type="button" onclick="location.reload()">Zurück zum Dashboard</button>`;
+  document.getElementById('main').innerHTML = `<h2>The quiz is finished.</h2>
+    <p>Your progress: <strong>${quizProg}/${quizList.length}</strong></p>
+    <button type="button" onclick="location.reload()">Back to dashboard</button>`;
 }
 
 /* ===== Reset / Init ===== */
 async function resetCache() {
-  if (await confirm("Quiz-Einstellungen zurücksetzen?\n\n✅ Betrifft nur das Quiz\n✅ Fragen bleiben erhalten\n✅ Andere Websites unberührt")) {
+  if (await confirm("Reset quiz settings?\n\n✅ Only affects the quiz\n✅ Questions remain intact\n✅ Other websites unaffected")) {
     localStorage.removeItem('quiz_settings');
-    await alert("✅ Quiz-Einstellungen wurden zurückgesetzt!");
+    await alert("✅ Quiz settings have been reset!");
     location.reload();
   }
 }
 async function resetAllData() {
-  if (await confirm("⚠️ Alle Quiz-Daten löschen?\n\n• Quiz-Fragen\n• Quiz-Einstellungen\n• Quiz-Fortschritt\n\n✅ Betrifft nur das Quiz\n✅ Andere Websites unberührt")) {
-    if (await confirm("🔴 LETZTE WARNUNG: Alle Quiz-Daten werden gelöscht!\n\nFortfahren?")) {
+  if (await confirm("⚠️ Delete all quiz data?\n\n• Quiz questions\n• Quiz settings\n• Quiz progress\n\n✅ Only affects the quiz\n✅ Other websites unaffected")) {
+    if (await confirm("🔴 FINAL WARNING: All quiz data will be deleted!\n\nProceed?")) {
       localStorage.removeItem('quizdb_v2');
       localStorage.removeItem('quiz_settings');
-      // Entferne auch gespeicherte Dataset-Infos, sodass der Fortschrittsbalken
-      // keine veralteten Angaben mehr zeigt.
+      // Also remove stored dataset info so the progress bar no longer shows outdated information.
       updateDatasetInfo('', '', '');
-      await alert("✅ Quiz-Daten wurden gelöscht!");
+      await alert("✅ Quiz data has been deleted!");
       location.reload();
     }
   }
