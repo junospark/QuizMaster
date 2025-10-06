@@ -188,11 +188,6 @@
       button{padding:10px 16px; margin:6px 6px 6px 0;}
       .native-dialog{min-width:280px; max-width:90vw; padding:16px;}
     }
-    @media (prefers-color-scheme: dark) { .scroll-table-container{border-color: color-mix(in srgb, ButtonBorder 60%, white 40%);} #modal-content, #preview-content, .native-dialog{ box-shadow:0 8px 32px rgba(0,0,0,0.5);} }
-    @media (prefers-reduced-motion: reduce){ *{animation-duration:.01ms !important; animation-iteration-count:1 !important; transition-duration:.01ms !important;} }
-    @media (prefers-contrast: high){
-      button,input,textarea,select,th,td{ border-width:2px; } .native-dialog{border-width:3px;}
-    }
     /* sanfte Hervorhebung der zuletzt bearbeiteten Zeile */
     .flash-highlight { animation: flash-bg 1.2s ease-out 1; }
     @keyframes flash-bg {
